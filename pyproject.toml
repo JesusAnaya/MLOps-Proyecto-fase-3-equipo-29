@@ -40,6 +40,7 @@ dependencies = [
     "pylint>=3.0.0",
     "graphviz>=0.20.0",
     "pydot>=1.4.2",
+    "mlflow>=3.5.1",
 ]
 requires-python = "~=3.12.0"
 
