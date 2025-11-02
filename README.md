@@ -843,17 +843,6 @@ prepare_data >> prepare_features >> train_model
 
 Ver `mlops_project/README.md` para más detalles sobre orquestación.
 
-## Convenciones
-
-- **Código**: Inglés
-- **Comentarios**: Español
-- **Documentación**: Español
-- **Commits**: Español (convención del equipo)
-- **Gestión de Paquetes**: UV (no pip directamente)
-- **Ejecución**: `uv run` para todos los comandos Python (no requiere activar venv)
-- **Versionado de Datos**: DVC para datasets, Git para código y metadatos `.dvc`
-- **Almacenamiento**: S3 para datos grandes, GitHub para código
-
 ## Equipo
 
 **Equipo 29** - TC5044.10  
