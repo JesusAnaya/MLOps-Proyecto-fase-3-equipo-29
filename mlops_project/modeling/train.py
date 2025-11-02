@@ -1,18 +1,23 @@
 """
-Training module for MLOps project.
+Training module for MLOps project with MLflow integration.
 
 Este módulo maneja el entrenamiento y evaluación de modelos:
 - Entrenamiento con cross-validation
-- Evaluación de métricas
+- Evaluación de métrricas
 - Guardado de modelos
 - Soporte para balanceo de clases con SMOTE
+- **Integración con MLflow**: tracking de runs, logging de params/métricas,
+  logging/registro de modelos en Model Registry
 """
 
 import argparse
 import json
+import os
 import sys
 from typing import Any, Dict, Optional, Tuple
 import warnings
+import subprocess
+from datetime import datetime
 
 from imblearn.metrics import geometric_mean_score
 from imblearn.over_sampling import SMOTE, BorderlineSMOTE
@@ -23,14 +28,29 @@ import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    make_scorer,
-)
+from sklearn.metrics import make_scorer
 from sklearn.model_selection import RepeatedStratifiedKFold, cross_validate
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
+from sklearn.pipeline import Pipeline as SkPipeline
+
+
+# --- MLflow (tomado del notebook) ---
+# Defaults sobreescribibles por ENV
+MLFLOW_URI_DEFAULT = os.getenv("MLFLOW_TRACKING_URI", "https://mlflow-equipo-29.robomous.ai")
+MLFLOW_EXPERIMENT_DEFAULT = os.getenv("MLFLOW_EXPERIMENT", "equipo-29")
+MODEL_VERSION_DEFAULT = os.getenv("MODEL_VERSION", "0.1.0")
+
+# Import diferido para que el script funcione incluso si falta mlflow
+_MLFLOW_AVAILABLE = True
+try:
+    import mlflow
+    import mlflow.sklearn as mlsk
+    from mlflow.models.signature import infer_signature
+except Exception:
+    _MLFLOW_AVAILABLE = False
 
 from mlops_project.config import (
     AVAILABLE_MODELS,
@@ -48,18 +68,24 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
+def _ts() -> str:
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def _git_commit() -> str:
+    try:
+        return (
+            subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL)
+            .decode()
+            .strip()
+        )
+    except Exception:
+        return "no-git"
+
+
 def get_model_instance(model_name: str) -> BaseEstimator:
     """
     Crea una instancia del modelo según el nombre.
-
-    Args:
-        model_name: Nombre del modelo ('logistic_regression', 'random_forest', etc.)
-
-    Returns:
-        Instancia del modelo configurado
-
-    Raises:
-        ValueError: Si el modelo no está disponible
     """
     model_mapping = {
         "logistic_regression": LogisticRegression,
@@ -84,12 +110,6 @@ def get_model_instance(model_name: str) -> BaseEstimator:
 def get_smote_instance(smote_method: str = "SMOTE") -> SMOTE | BorderlineSMOTE:
     """
     Crea una instancia de SMOTE según el método especificado.
-
-    Args:
-        smote_method: Método de SMOTE ('SMOTE', 'BorderlineSMOTE')
-
-    Returns:
-        Instancia de SMOTE configurada
     """
     if smote_method == "BorderlineSMOTE":
         return BorderlineSMOTE(
@@ -108,23 +128,25 @@ def create_training_pipeline(
     smote_method: str = "BorderlineSMOTE",
 ) -> ImbPipeline:
     """
-    Crea el pipeline completo de entrenamiento.
-
-    Args:
-        preprocessor: Pipeline de preprocesamiento de features
-        model: Modelo a entrenar
-        use_smote: Si se debe usar SMOTE para balanceo de clases
-        smote_method: Método de SMOTE a usar
-
-    Returns:
-        Pipeline de imblearn con preprocesamiento, SMOTE y modelo
+    Crea el pipeline completo de entrenamiento compatible con imblearn:
+    - Si el preprocessor es un sklearn.Pipeline, se 'aplana' sus steps.
+    - Si no, se agrega como un transformador normal.
     """
-    steps = [("preprocessor", preprocessor)]
+    steps = []
 
+    # 1) Aplanar si es sklearn.Pipeline; de lo contrario, agregar como transformador único
+    if isinstance(preprocessor, SkPipeline):
+        # ejemplo: [('coltransform', ColumnTransformer(...)), ('scaler', StandardScaler())]
+        steps.extend(preprocessor.steps)
+    else:
+        steps.append(("preprocessor", preprocessor))
+
+    # 2) SMOTE (si aplica)
     if use_smote:
         smote_instance = get_smote_instance(smote_method)
         steps.append(("smote", smote_instance))
 
+    # 3) Modelo
     steps.append(("model", model))
 
     return ImbPipeline(steps=steps)
@@ -140,22 +162,9 @@ def evaluate_model(
 ) -> Dict[str, Dict[str, float]]:
     """
     Evalúa el modelo usando validación cruzada.
-
-    Args:
-        pipeline: Pipeline completo de entrenamiento
-        X: Features
-        y: Variable objetivo
-        cv_folds: Número de folds para cross-validation
-        cv_repeats: Número de repeticiones de cross-validation
-        verbose: Si se debe imprimir resultados
-
-    Returns:
-        Diccionario con métricas de evaluación
     """
-    # Configurar cross-validation
     cv = RepeatedStratifiedKFold(n_splits=cv_folds, n_repeats=cv_repeats, random_state=RANDOM_SEED)
 
-    # Definir métricas
     scoring = {
         "accuracy": "accuracy",
         "precision": "precision",
@@ -166,14 +175,12 @@ def evaluate_model(
         "geometric_mean": make_scorer(geometric_mean_score),
     }
 
-    # Evaluar con cross-validation
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         cv_results = cross_validate(
             pipeline, X, np.ravel(y), scoring=scoring, cv=cv, return_train_score=True
         )
 
-    # Calcular estadísticas
     results = {}
     for metric_name in scoring.keys():
         test_key = f"test_{metric_name}"
@@ -186,7 +193,6 @@ def evaluate_model(
             "train_std": float(np.std(cv_results[train_key])),
         }
 
-    # Imprimir resultados si verbose
     if verbose:
         print("\n" + "=" * 60)
         print("RESULTADOS DE VALIDACIÓN CRUZADA")
@@ -219,26 +225,11 @@ def train_model(
 ) -> Tuple[ImbPipeline, Optional[Dict[str, Dict[str, float]]]]:
     """
     Entrena un modelo con el pipeline completo.
-
-    Args:
-        X_train: Features de entrenamiento
-        y_train: Variable objetivo de entrenamiento
-        preprocessor: Pipeline de preprocesamiento
-        model_name: Nombre del modelo a entrenar
-        use_smote: Si se debe usar SMOTE
-        smote_method: Método de SMOTE
-        evaluate: Si se debe evaluar con cross-validation
-        save_model: Si se debe guardar el modelo
-        model_filename: Nombre del archivo para guardar el modelo
-
-    Returns:
-        Tupla (pipeline_entrenado, resultados_evaluacion)
     """
     print("\n" + "=" * 60)
     print("ENTRENAMIENTO DE MODELO")
     print("=" * 60)
 
-    # Crear instancia del modelo
     model = get_model_instance(model_name)
     model_display_name = AVAILABLE_MODELS[model_name]["name"]
 
@@ -246,7 +237,6 @@ def train_model(
     print(f"SMOTE: {'Sí' if use_smote else 'No'} ({smote_method if use_smote else 'N/A'})")
     print(f"Datos: X{X_train.shape}, y{y_train.shape}")
 
-    # Crear pipeline
     pipeline = create_training_pipeline(
         preprocessor=preprocessor,
         model=model,
@@ -254,23 +244,18 @@ def train_model(
         smote_method=smote_method,
     )
 
-    # Evaluar con cross-validation si se requiere
     evaluation_results = None
     if evaluate:
         print("\n[1/2] Evaluando modelo con validación cruzada...")
         evaluation_results = evaluate_model(pipeline, X_train, y_train)
 
-    # Entrenar el pipeline completo con todos los datos
-    print(
-        f"\n[{'2/2' if evaluate else '1/1'}] Entrenando modelo con todos los datos de entrenamiento..."
-    )
+    print(f"\n[{'2/2' if evaluate else '1/1'}] Entrenando modelo con todos los datos de entrenamiento...")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         pipeline.fit(X_train, y_train)
 
     print("✓ Modelo entrenado exitosamente")
 
-    # Guardar modelo si se requiere
     if save_model:
         filename = model_filename or BEST_MODEL_FILENAME
         model_path = get_model_path(filename)
@@ -286,14 +271,9 @@ def save_results(
     results: Dict[str, Dict[str, float]],
     model_name: str,
     filename: Optional[str] = None,
-) -> None:
+) -> str:
     """
-    Guarda los resultados de evaluación en formato JSON.
-
-    Args:
-        results: Resultados de evaluación
-        model_name: Nombre del modelo
-        filename: Nombre del archivo (opcional)
+    Guarda los resultados de evaluación en formato JSON. Devuelve la ruta escrita.
     """
     filename = filename or RESULTS_FILENAME
     results_path = get_model_path(filename)
@@ -314,6 +294,98 @@ def save_results(
         json.dump(output, f, indent=2)
 
     print(f"✓ Resultados guardados en: {results_path}")
+    return results_path
+
+
+def _mlflow_log_run(
+    *,
+    X_sample: pd.DataFrame,
+    pipeline: ImbPipeline,
+    model_name: str,
+    model_display_name: str,
+    model_params: Dict[str, Any],
+    evaluation_results: Optional[Dict[str, Dict[str, float]]],
+    used_smote: bool,
+    smote_method: Optional[str],
+    results_json_path: Optional[str],
+    args_namespace: argparse.Namespace,
+) -> None:
+    """
+    Integra el patrón del notebook: set_tracking_uri, set_experiment, start_run con tags,
+    logging de params/métricas, y registro del modelo en Model Registry.
+    """
+    if not _MLFLOW_AVAILABLE or args_namespace.mlflow_disable:
+        print("ℹ MLflow deshabilitado o no disponible; se omite logging.")
+        return
+
+    try:
+        # Configuración base
+        tracking_uri = args_namespace.mlflow_uri or MLFLOW_URI_DEFAULT
+        experiment = args_namespace.mlflow_experiment or MLFLOW_EXPERIMENT_DEFAULT
+        mlflow.set_tracking_uri(tracking_uri)
+        mlflow.set_experiment(experiment)
+
+        # Tags (como en notebook)
+        run_name = args_namespace.mlflow_run_name or f"train_{model_name}_{_ts()}"
+        tags = {
+            "project": "mlops-phase-1",
+            "team": "29",
+            "script": "train.py",
+            "model_version": args_namespace.model_version or MODEL_VERSION_DEFAULT,
+            "git_commit": _git_commit(),
+        }
+        if args_namespace.mlflow_tags:
+            # Permitir JSON de tags extra
+            try:
+                tags.update(json.loads(args_namespace.mlflow_tags))
+            except Exception:
+                pass
+
+        with mlflow.start_run(run_name=run_name, tags=tags):
+            # Params del modelo y del sampler
+            mlflow.log_param("model_key", model_name)
+            for k, v in model_params.items():
+                mlflow.log_param(f"model__{k}", v)
+
+            mlflow.log_param("smote__used", used_smote)
+            if used_smote:
+                mlflow.log_param("smote__method", smote_method)
+
+            # Métricas (promedios de CV)
+            if evaluation_results:
+                # Log plano y por-nombre para facilitar dashboards
+                for metric, stats in evaluation_results.items():
+                    mlflow.log_metric(f"{metric}_test_mean", stats["test_mean"])
+                    mlflow.log_metric(f"{metric}_test_std", stats["test_std"])
+                    mlflow.log_metric(f"{metric}_train_mean", stats["train_mean"])
+                    mlflow.log_metric(f"{metric}_train_std", stats["train_std"])
+
+            # Artefacto JSON de resultados
+            if results_json_path and os.path.exists(results_json_path):
+                mlflow.log_artifact(results_json_path, artifact_path="results")
+
+            # Log/registro de modelo (como en el notebook)
+            try:
+                signature = infer_signature(X_sample, pipeline.predict(X_sample))
+            except Exception:
+                signature = None
+
+            registered_name = (
+                args_namespace.mlflow_reg_name or model_display_name.replace(" ", "_")
+            )
+
+            mlsk.log_model(
+                pipeline,
+                artifact_path="model",
+                input_example=X_sample,
+                signature=signature,
+                registered_model_name=registered_name,
+            )
+
+            print(f"✓ MLflow run registrado en experimento '{experiment}'.")
+    except Exception as e:
+        # No interrumpir entrenamiento por fallas de tracking
+        print(f"⚠ Aviso MLflow: no se pudo registrar el run → {e}")
 
 
 def main():
@@ -321,26 +393,11 @@ def main():
     Función principal para ejecutar el script desde línea de comandos.
     """
     parser = argparse.ArgumentParser(
-        description="Entrena un modelo de clasificación para el pipeline de MLOps"
+        description="Entrena un modelo de clasificación para el pipeline de MLOps (con MLflow)"
     )
-    parser.add_argument(
-        "--X-train",
-        type=str,
-        required=True,
-        help="Ruta al archivo CSV con features de entrenamiento",
-    )
-    parser.add_argument(
-        "--y-train",
-        type=str,
-        required=True,
-        help="Ruta al archivo CSV con variable objetivo de entrenamiento",
-    )
-    parser.add_argument(
-        "--preprocessor",
-        type=str,
-        required=True,
-        help="Ruta al archivo del preprocessor guardado",
-    )
+    parser.add_argument("--X-train", type=str, required=True, help="CSV con features de entrenamiento")
+    parser.add_argument("--y-train", type=str, required=True, help="CSV con target de entrenamiento")
+    parser.add_argument("--preprocessor", type=str, required=True, help="Ruta del preprocessor .joblib")
     parser.add_argument(
         "--model",
         type=str,
@@ -348,11 +405,7 @@ def main():
         choices=list(AVAILABLE_MODELS.keys()),
         help="Modelo a entrenar",
     )
-    parser.add_argument(
-        "--no-smote",
-        action="store_true",
-        help="No usar SMOTE para balanceo de clases",
-    )
+    parser.add_argument("--no-smote", action="store_true", help="No usar SMOTE para balanceo de clases")
     parser.add_argument(
         "--smote-method",
         type=str,
@@ -360,16 +413,17 @@ def main():
         choices=["SMOTE", "BorderlineSMOTE"],
         help="Método de SMOTE a usar",
     )
-    parser.add_argument(
-        "--no-evaluate",
-        action="store_true",
-        help="No evaluar con cross-validation",
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        help="Nombre del archivo de salida para el modelo (opcional)",
-    )
+    parser.add_argument("--no-evaluate", action="store_true", help="No evaluar con cross-validation")
+    parser.add_argument("--output", type=str, help="Nombre del archivo de salida para el modelo (opcional)")
+
+    # -------- Flags MLflow (inspirados en el notebook) --------
+    parser.add_argument("--mlflow-disable", action="store_true", help="Deshabilitar logging a MLflow")
+    parser.add_argument("--mlflow-uri", type=str, help=f"Tracking URI (default: {MLFLOW_URI_DEFAULT})")
+    parser.add_argument("--mlflow-experiment", type=str, help=f"Nombre de experimento (default: {MLFLOW_EXPERIMENT_DEFAULT})")
+    parser.add_argument("--mlflow-run-name", type=str, help="Nombre del run (si no, usa plantilla)")
+    parser.add_argument("--mlflow-reg-name", type=str, help="Nombre a registrar en Model Registry")
+    parser.add_argument("--mlflow-tags", type=str, help='Tags extra en JSON (e.g. \'{"dataset":"south_german"}\')')
+    parser.add_argument("--model-version", type=str, help=f"Versión semántica del modelo (default: {MODEL_VERSION_DEFAULT})")
 
     args = parser.parse_args()
 
@@ -397,8 +451,27 @@ def main():
         )
 
         # Guardar resultados si se evaluó
+        results_json_path = None
         if results:
-            save_results(results, args.model)
+            results_json_path = save_results(results, args.model)
+
+        # -------- MLflow logging/registro (idéntico espíritu al notebook) --------
+        model_display_name = AVAILABLE_MODELS[args.model]["name"]
+        model_params = AVAILABLE_MODELS[args.model]["params"]
+        X_sample = X_train.head(min(5, len(X_train)))  # input_example para firma
+
+        _mlflow_log_run(
+            X_sample=X_sample,
+            pipeline=pipeline,
+            model_name=args.model,
+            model_display_name=model_display_name,
+            model_params=model_params,
+            evaluation_results=results,
+            used_smote=(not args.no_smote),
+            smote_method=(args.smote_method if not args.no_smote else None),
+            results_json_path=results_json_path,
+            args_namespace=args,
+        )
 
         print("\n✓ Pipeline de entrenamiento completado exitosamente")
         return 0
