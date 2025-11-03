@@ -477,7 +477,7 @@ def _mlflow_log_run(
                     except Exception:
                         pass  # No crítico si falla
                 
-                # Loggear pipeline completo con sklearn (incluye preprocessing)
+                # Loggear pipeline completo con sklearn
                 if MLFLOW_REGISTER_MODELS:
                     mlsk.log_model(
                         pipeline,
@@ -559,7 +559,7 @@ def main():
     parser.add_argument("--no-evaluate", action="store_true", help="No evaluar con cross-validation")
     parser.add_argument("--output", type=str, help="Nombre del archivo de salida para el modelo (opcional)")
 
-    # -------- Flags MLflow (inspirados en el notebook) --------
+    # -------- Banderas de MLflow --------
     parser.add_argument("--mlflow-disable", action="store_true", help="Deshabilitar logging a MLflow")
     parser.add_argument("--mlflow-uri", type=str, help=f"Tracking URI (default: {MLFLOW_TRACKING_URI})")
     parser.add_argument("--mlflow-experiment", type=str, help=f"Nombre de experimento (default: {MLFLOW_EXPERIMENT_NAME})")
@@ -598,7 +598,7 @@ def main():
         if results:
             results_json_path = save_results(results, args.model)
 
-        # -------- MLflow logging/registro (idéntico espíritu al notebook) --------
+        # -------- MLflow logging/registro --------
         model_display_name = AVAILABLE_MODELS[args.model]["name"]
         model_params = AVAILABLE_MODELS[args.model]["params"]
         X_sample = X_train.head(min(5, len(X_train)))  # input_example para firma
