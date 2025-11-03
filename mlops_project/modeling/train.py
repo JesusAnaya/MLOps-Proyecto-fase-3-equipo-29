@@ -37,26 +37,28 @@ from xgboost import XGBClassifier
 from sklearn.pipeline import Pipeline as SkPipeline
 
 
-# --- MLflow (tomado del notebook) ---
-# Defaults sobreescribibles por ENV
-MLFLOW_URI_DEFAULT = os.getenv("MLFLOW_TRACKING_URI", "https://mlflow-equipo-29.robomous.ai")
-MLFLOW_EXPERIMENT_DEFAULT = os.getenv("MLFLOW_EXPERIMENT", "equipo-29")
-MODEL_VERSION_DEFAULT = os.getenv("MODEL_VERSION", "0.1.0")
-
 # Import diferido para que el script funcione incluso si falta mlflow
 _MLFLOW_AVAILABLE = True
 try:
     import mlflow
     import mlflow.sklearn as mlsk
+    import mlflow.xgboost as mlxg  # MLflow specialized library for XGBoost
     from mlflow.models.signature import infer_signature
 except Exception:
     _MLFLOW_AVAILABLE = False
+    mlsk = None
+    mlxg = None
 
 from mlops_project.config import (
     AVAILABLE_MODELS,
     BEST_MODEL_FILENAME,
     CV_FOLDS,
     CV_REPEATS,
+    MLFLOW_DEFAULT_TAGS,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_MODEL_VERSION,
+    MLFLOW_REGISTER_MODELS,
+    MLFLOW_TRACKING_URI,
     RANDOM_SEED,
     RESULTS_FILENAME,
     SMOTE_CONFIG,
@@ -297,6 +299,44 @@ def save_results(
     return results_path
 
 
+def _convert_param_value(value: Any) -> Any:
+    """
+    Convierte valores de parámetros a tipos compatibles con MLflow.
+    MLflow requiere que los parámetros sean strings, números o booleanos.
+    """
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    elif isinstance(value, (list, tuple)):
+        # MLflow no soporta listas directamente, convertir a string JSON
+        return json.dumps(value)
+    elif value is None:
+        return "None"
+    else:
+        # Convertir otros tipos a string
+        return str(value)
+
+
+def _log_hyperparameters(model_name: str, model_params: Dict[str, Any]) -> None:
+    """
+    Logs hyperparameters with correct types for each model type.
+    Uses model-specific parameter names and converts values appropriately.
+    """
+    # Log model identifier
+    mlflow.log_param("model_key", model_name)
+    
+    # Convert and log each hyperparameter with correct type
+    for param_name, param_value in model_params.items():
+        converted_value = _convert_param_value(param_value)
+        
+        # Use model-specific parameter naming
+        if model_name == "xgboost":
+            # XGBoost parameters - preserve as is with proper typing
+            mlflow.log_param(f"model.{param_name}", converted_value)
+        else:
+            # sklearn models - use standard naming
+            mlflow.log_param(f"model__{param_name}", converted_value)
+
+
 def _mlflow_log_run(
     *,
     X_sample: pd.DataFrame,
@@ -311,29 +351,37 @@ def _mlflow_log_run(
     args_namespace: argparse.Namespace,
 ) -> None:
     """
-    Integra el patrón del notebook: set_tracking_uri, set_experiment, start_run con tags,
-    logging de params/métricas, y registro del modelo en Model Registry.
+    Integra MLflow con logging completo:
+    - Versión del modelo
+    - Hyperparameters con tipos correctos
+    - Métricas de evaluación
+    - Resultados relevantes
+    - Registro en Model Registry usando librerías especializadas
     """
     if not _MLFLOW_AVAILABLE or args_namespace.mlflow_disable:
         print("ℹ MLflow deshabilitado o no disponible; se omite logging.")
         return
 
     try:
-        # Configuración base
-        tracking_uri = args_namespace.mlflow_uri or MLFLOW_URI_DEFAULT
-        experiment = args_namespace.mlflow_experiment or MLFLOW_EXPERIMENT_DEFAULT
+        # Configuración base desde config.py (puede ser sobrescrita por args)
+        tracking_uri = args_namespace.mlflow_uri or MLFLOW_TRACKING_URI
+        experiment = args_namespace.mlflow_experiment or MLFLOW_EXPERIMENT_NAME
+        model_version = args_namespace.model_version or MLFLOW_MODEL_VERSION
+        
         mlflow.set_tracking_uri(tracking_uri)
         mlflow.set_experiment(experiment)
 
-        # Tags (como en notebook)
+        # Tags con información del proyecto
         run_name = args_namespace.mlflow_run_name or f"train_{model_name}_{_ts()}"
         tags = {
-            "project": "mlops-phase-1",
-            "team": "29",
-            "script": "train.py",
-            "model_version": args_namespace.model_version or MODEL_VERSION_DEFAULT,
+            **MLFLOW_DEFAULT_TAGS.copy(),
+            "model_version": model_version,
+            "model_name": model_name,
+            "model_display_name": model_display_name,
             "git_commit": _git_commit(),
+            "timestamp": _ts(),
         }
+        
         if args_namespace.mlflow_tags:
             # Permitir JSON de tags extra
             try:
@@ -342,50 +390,145 @@ def _mlflow_log_run(
                 pass
 
         with mlflow.start_run(run_name=run_name, tags=tags):
-            # Params del modelo y del sampler
-            mlflow.log_param("model_key", model_name)
-            for k, v in model_params.items():
-                mlflow.log_param(f"model__{k}", v)
-
-            mlflow.log_param("smote__used", used_smote)
+            # === 1. VERSIÓN DEL MODELO ===
+            mlflow.log_param("version", model_version)
+            
+            # === 2. HYPERPARAMETERS ===
+            _log_hyperparameters(model_name, model_params)
+            
+            # Parámetros de preprocesamiento y SMOTE
+            mlflow.log_params({
+                "cv_folds": CV_FOLDS,
+                "cv_repeats": CV_REPEATS,
+                "random_seed": RANDOM_SEED,
+                "smote__used": used_smote,
+            })
+            
             if used_smote:
-                mlflow.log_param("smote__method", smote_method)
+                mlflow.log_params({
+                    "smote__method": smote_method or "N/A",
+                    "smote__k_neighbors": SMOTE_CONFIG.get("k_neighbors", "N/A"),
+                    "smote__m_neighbors": SMOTE_CONFIG.get("m_neighbors", "N/A"),
+                })
 
-            # Métricas (promedios de CV)
+            # === 3. MÉTRICAS DE EVALUACIÓN ===
             if evaluation_results:
-                # Log plano y por-nombre para facilitar dashboards
+                # Log métricas principales (promedios de CV)
                 for metric, stats in evaluation_results.items():
+                    # Métricas de test (las más importantes)
                     mlflow.log_metric(f"{metric}_test_mean", stats["test_mean"])
                     mlflow.log_metric(f"{metric}_test_std", stats["test_std"])
+                    
+                    # Métricas de train (para detectar overfitting)
                     mlflow.log_metric(f"{metric}_train_mean", stats["train_mean"])
                     mlflow.log_metric(f"{metric}_train_std", stats["train_std"])
+                    
+                    # Métrica principal para comparación (test_mean)
+                    if metric in ["roc_auc", "f1", "accuracy"]:
+                        mlflow.log_metric(f"{metric}", stats["test_mean"])
+                
+                # Log métricas agregadas para facilitar comparación
+                if "roc_auc" in evaluation_results:
+                    mlflow.log_metric("best_metric", evaluation_results["roc_auc"]["test_mean"])
+                    mlflow.log_param("best_metric_name", "roc_auc")
 
-            # Artefacto JSON de resultados
+            # === 4. RESULTADOS RELEVANTES ===
             if results_json_path and os.path.exists(results_json_path):
                 mlflow.log_artifact(results_json_path, artifact_path="results")
+                # También log el path como parámetro para referencia
+                mlflow.log_param("results_json_path", str(results_json_path))
+            
+            # Log información del dataset
+            mlflow.log_params({
+                "dataset_shape": f"{X_sample.shape[0]}x{X_sample.shape[1]}",
+                "n_features": X_sample.shape[1],
+            })
 
-            # Log/registro de modelo (como en el notebook)
+            # === 5. REGISTRO DEL MODELO ===
             try:
                 signature = infer_signature(X_sample, pipeline.predict(X_sample))
             except Exception:
                 signature = None
 
             registered_name = (
-                args_namespace.mlflow_reg_name or model_display_name.replace(" ", "_")
+                args_namespace.mlflow_reg_name or model_display_name.replace(" ", "_").lower()
             )
 
-            mlsk.log_model(
-                pipeline,
-                artifact_path="model",
-                input_example=X_sample,
-                signature=signature,
-                registered_model_name=registered_name,
-            )
+            # Usar librerías especializadas según el tipo de modelo
+            # Nota: Para pipelines que incluyen preprocesamiento, usamos mlflow.sklearn
+            # ya que puede manejar cualquier modelo sklearn-compatible (incluyendo XGBoost)
+            # Para XGBoost, también registramos metadata específica pero usamos sklearn logging
+            
+            if model_name == "xgboost":
+                # Para XGBoost en pipeline, loggear el pipeline completo con sklearn
+                # pero agregar tags y metadata específicos de XGBoost
+                mlflow.set_tag("model_framework", "xgboost")
+                mlflow.set_tag("model_type", "gradient_boosting")
+                
+                # Loggear también el modelo XGBoost puro para referencia
+                if mlxg is not None and "model" in pipeline.named_steps:
+                    try:
+                        xgb_model = pipeline.named_steps["model"]
+                        # Loggear modelo XGBoost standalone (opcional, solo para referencia)
+                        mlxg.log_model(
+                            xgb_model,
+                            artifact_path="xgb_model_only",
+                        )
+                    except Exception:
+                        pass  # No crítico si falla
+                
+                # Loggear pipeline completo con sklearn
+                if MLFLOW_REGISTER_MODELS:
+                    mlsk.log_model(
+                        pipeline,
+                        artifact_path="model",
+                        input_example=X_sample,
+                        signature=signature,
+                        registered_model_name=registered_name,
+                    )
+                else:
+                    mlsk.log_model(
+                        pipeline,
+                        artifact_path="model",
+                        input_example=X_sample,
+                        signature=signature,
+                    )
+            else:
+                # sklearn models - usar mlflow.sklearn
+                mlflow.set_tag("model_framework", "sklearn")
+                mlflow.set_tag("model_type", model_name)
+                
+                if MLFLOW_REGISTER_MODELS:
+                    mlsk.log_model(
+                        pipeline,
+                        artifact_path="model",
+                        input_example=X_sample,
+                        signature=signature,
+                        registered_model_name=registered_name,
+                    )
+                else:
+                    mlsk.log_model(
+                        pipeline,
+                        artifact_path="model",
+                        input_example=X_sample,
+                        signature=signature,
+                    )
 
-            print(f"✓ MLflow run registrado en experimento '{experiment}'.")
+            # Log información del run
+            run_id = mlflow.active_run().info.run_id
+            print(f"✓ MLflow run registrado:")
+            print(f"  - Experiment: '{experiment}'")
+            print(f"  - Run ID: {run_id}")
+            print(f"  - Model: {model_display_name}")
+            print(f"  - Version: {model_version}")
+            if MLFLOW_REGISTER_MODELS:
+                print(f"  - Registered as: '{registered_name}'")
+                
     except Exception as e:
         # No interrumpir entrenamiento por fallas de tracking
         print(f"⚠ Aviso MLflow: no se pudo registrar el run → {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def main():
@@ -416,14 +559,14 @@ def main():
     parser.add_argument("--no-evaluate", action="store_true", help="No evaluar con cross-validation")
     parser.add_argument("--output", type=str, help="Nombre del archivo de salida para el modelo (opcional)")
 
-    # -------- Flags MLflow (inspirados en el notebook) --------
+    # -------- Banderas de MLflow --------
     parser.add_argument("--mlflow-disable", action="store_true", help="Deshabilitar logging a MLflow")
-    parser.add_argument("--mlflow-uri", type=str, help=f"Tracking URI (default: {MLFLOW_URI_DEFAULT})")
-    parser.add_argument("--mlflow-experiment", type=str, help=f"Nombre de experimento (default: {MLFLOW_EXPERIMENT_DEFAULT})")
+    parser.add_argument("--mlflow-uri", type=str, help=f"Tracking URI (default: {MLFLOW_TRACKING_URI})")
+    parser.add_argument("--mlflow-experiment", type=str, help=f"Nombre de experimento (default: {MLFLOW_EXPERIMENT_NAME})")
     parser.add_argument("--mlflow-run-name", type=str, help="Nombre del run (si no, usa plantilla)")
     parser.add_argument("--mlflow-reg-name", type=str, help="Nombre a registrar en Model Registry")
     parser.add_argument("--mlflow-tags", type=str, help='Tags extra en JSON (e.g. \'{"dataset":"south_german"}\')')
-    parser.add_argument("--model-version", type=str, help=f"Versión semántica del modelo (default: {MODEL_VERSION_DEFAULT})")
+    parser.add_argument("--model-version", type=str, help=f"Versión semántica del modelo (default: {MLFLOW_MODEL_VERSION})")
 
     args = parser.parse_args()
 
@@ -455,7 +598,7 @@ def main():
         if results:
             results_json_path = save_results(results, args.model)
 
-        # -------- MLflow logging/registro (idéntico espíritu al notebook) --------
+        # -------- MLflow logging/registro --------
         model_display_name = AVAILABLE_MODELS[args.model]["name"]
         model_params = AVAILABLE_MODELS[args.model]["params"]
         X_sample = X_train.head(min(5, len(X_train)))  # input_example para firma

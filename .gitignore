@@ -2,6 +2,19 @@
 # Los archivos .dvc y .gitignore dentro de data/ se trackean con Git
 # Los archivos CSV se ignoran (están en data/*/.gitignore generados por DVC)
 
+# Models - DVC manages model artifacts (joblib files)
+# Models tracked by DVC should be ignored by Git
+# DVC creates models/.gitignore automatically for specific files
+# This pattern ensures any future .joblib files in models/ are ignored
+models/*.joblib
+
+# CSV files - DVC manages CSV files in data/ directories
+# Ignore CSV files in root and other locations (use DVC for data files)
+# Note: CSV files in data/ are already ignored by data/*/.gitignore files created by DVC
+*.csv
+!*.csv.dvc
+!data/**/.gitignore
+
 # Archivos temporales de generación de diagramas UML
 *.dot
 classes_*.dot
@@ -195,3 +208,4 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+.idea/

@@ -186,6 +186,24 @@ BEST_MODEL_FILENAME = "best_model.joblib"
 PREPROCESSOR_FILENAME = "preprocessor.joblib"
 RESULTS_FILENAME = "model_results.json"
 
+# === Configuración de MLflow ===
+# MLflow Tracking URI - puede ser sobrescrito por variable de entorno
+import os
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "https://mlflow-equipo-29.robomous.ai")
+MLFLOW_EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT", "equipo-29")
+MLFLOW_MODEL_VERSION = os.getenv("MODEL_VERSION", "0.1.0")
+
+# Tags por defecto para MLflow runs
+MLFLOW_DEFAULT_TAGS: Dict[str, str] = {
+    "project": "mlops-phase-2",
+    "team": "29",
+    "script": "train.py",
+}
+
+# Configuración de registro de modelos en MLflow Model Registry
+MLFLOW_REGISTER_MODELS = True  # Si True, registra modelos en Model Registry
+MLFLOW_ENABLE_AUTOLOG = False  # Si True, usa autolog (recomendado False para control manual)
+
 
 def ensure_directories() -> None:
     """
