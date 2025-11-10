@@ -31,6 +31,7 @@ from mlops_project.modeling.train import (
 )
 
 
+@pytest.mark.unit
 class TestModelInstancesImproved:
     """Tests mejorados para creación de instancias de modelos."""
 
@@ -80,6 +81,7 @@ class TestModelInstancesImproved:
         assert smote.__class__.__name__ == "BorderlineSMOTE"
 
 
+@pytest.mark.unit
 class TestTrainingPipelineImproved:
     """Tests mejorados para creación del pipeline de entrenamiento."""
 
@@ -128,6 +130,7 @@ class TestTrainingPipelineImproved:
         assert final_model.__class__.__name__ == "RandomForestClassifier"
 
 
+@pytest.mark.unit
 class TestEvaluateModelMocked:
     """Tests para evaluate_model usando mocks."""
 
@@ -171,20 +174,40 @@ class TestEvaluateModelMocked:
 
     @patch("mlops_project.modeling.train.cross_validate")
     def test_evaluate_model_calculates_correct_stats(
-        self, mock_cross_validate, mock_preprocessor, sample_X_y, sample_cv_results
+        self, mock_cross_validate, sample_realistic_data_df, sample_cv_results
     ):
         """Verifica que evaluate_model calcule estadísticas correctamente."""
-        X, y = sample_X_y
+        from mlops_project.features import create_feature_pipeline
+
+        X = sample_realistic_data_df.drop(columns=["kredit"])
+        y = sample_realistic_data_df["kredit"]
         model = get_model_instance("logistic_regression")
 
-        pipeline = create_training_pipeline(
-            preprocessor=mock_preprocessor, model=model, use_smote=False
+        # Usar preprocessor real en lugar de mock
+        preprocessor = create_feature_pipeline(
+            include_invalid_handler=False, include_outlier_handler=False
         )
 
-        # Configurar mock con valores conocidos
+        pipeline = create_training_pipeline(
+            preprocessor=preprocessor, model=model, use_smote=False
+        )
+
+        # Configurar mock con valores conocidos (incluyendo todas las métricas)
         mock_cv_results = {
             "test_accuracy": np.array([0.8, 0.85, 0.9]),
             "train_accuracy": np.array([0.82, 0.87, 0.92]),
+            "test_precision": np.array([0.75, 0.80, 0.85]),
+            "train_precision": np.array([0.77, 0.82, 0.87]),
+            "test_recall": np.array([0.70, 0.75, 0.80]),
+            "train_recall": np.array([0.72, 0.77, 0.82]),
+            "test_f1": np.array([0.72, 0.77, 0.82]),
+            "train_f1": np.array([0.74, 0.79, 0.84]),
+            "test_roc_auc": np.array([0.78, 0.83, 0.88]),
+            "train_roc_auc": np.array([0.80, 0.85, 0.90]),
+            "test_average_precision": np.array([0.76, 0.81, 0.86]),
+            "train_average_precision": np.array([0.78, 0.83, 0.88]),
+            "test_geometric_mean": np.array([0.71, 0.76, 0.81]),
+            "train_geometric_mean": np.array([0.73, 0.78, 0.83]),
         }
         mock_cross_validate.return_value = mock_cv_results
 
@@ -197,16 +220,25 @@ class TestEvaluateModelMocked:
         )
 
 
+@pytest.mark.unit
 class TestTrainModelMocked:
     """Tests para train_model usando mocks."""
 
     @patch("mlops_project.modeling.train.evaluate_model")
     @patch("mlops_project.modeling.train.joblib.dump")
     def test_train_model_without_evaluation(
-        self, mock_dump, mock_evaluate, mock_preprocessor, sample_X_y
+        self, mock_dump, mock_evaluate, sample_realistic_data_df
     ):
         """Verifica train_model sin evaluación."""
-        X, y = sample_X_y
+        from mlops_project.features import create_feature_pipeline
+
+        X = sample_realistic_data_df.drop(columns=["kredit"])
+        y = sample_realistic_data_df["kredit"]
+
+        # Usar preprocessor real en lugar de mock para compatibilidad con sklearn
+        preprocessor = create_feature_pipeline(
+            include_invalid_handler=False, include_outlier_handler=False
+        )
 
         # Mock evaluate_model para que no se ejecute cross-validation real
         mock_evaluate.return_value = {"accuracy": {"test_mean": 0.8, "test_std": 0.05}}
@@ -214,7 +246,7 @@ class TestTrainModelMocked:
         pipeline, results = train_model(
             X_train=X,
             y_train=y,
-            preprocessor=mock_preprocessor,
+            preprocessor=preprocessor,
             model_name="logistic_regression",
             use_smote=False,
             evaluate=False,
@@ -236,10 +268,18 @@ class TestTrainModelMocked:
     @patch("mlops_project.modeling.train.evaluate_model")
     @patch("mlops_project.modeling.train.joblib.dump")
     def test_train_model_with_evaluation(
-        self, mock_dump, mock_evaluate, mock_preprocessor, sample_X_y
+        self, mock_dump, mock_evaluate, sample_realistic_data_df
     ):
         """Verifica train_model con evaluación."""
-        X, y = sample_X_y
+        from mlops_project.features import create_feature_pipeline
+
+        X = sample_realistic_data_df.drop(columns=["kredit"])
+        y = sample_realistic_data_df["kredit"]
+
+        # Usar preprocessor real en lugar de mock
+        preprocessor = create_feature_pipeline(
+            include_invalid_handler=False, include_outlier_handler=False
+        )
 
         mock_eval_results = {"accuracy": {"test_mean": 0.8, "test_std": 0.05}}
         mock_evaluate.return_value = mock_eval_results
@@ -247,7 +287,7 @@ class TestTrainModelMocked:
         pipeline, results = train_model(
             X_train=X,
             y_train=y,
-            preprocessor=mock_preprocessor,
+            preprocessor=preprocessor,
             model_name="logistic_regression",
             use_smote=False,
             evaluate=True,
@@ -262,10 +302,18 @@ class TestTrainModelMocked:
 
     @patch("mlops_project.modeling.train.joblib.dump")
     def test_train_model_saves_when_requested(
-        self, mock_dump, mock_preprocessor, sample_X_y, mocker
+        self, mock_dump, sample_realistic_data_df, mocker
     ):
         """Verifica que train_model guarde el modelo cuando se solicita."""
-        X, y = sample_X_y
+        from mlops_project.features import create_feature_pipeline
+
+        X = sample_realistic_data_df.drop(columns=["kredit"])
+        y = sample_realistic_data_df["kredit"]
+
+        # Usar preprocessor real en lugar de mock
+        preprocessor = create_feature_pipeline(
+            include_invalid_handler=False, include_outlier_handler=False
+        )
 
         # Mock get_model_path
         mock_path = mocker.patch("mlops_project.modeling.train.get_model_path")
@@ -274,7 +322,7 @@ class TestTrainModelMocked:
         train_model(
             X_train=X,
             y_train=y,
-            preprocessor=mock_preprocessor,
+            preprocessor=preprocessor,
             model_name="logistic_regression",
             use_smote=False,
             evaluate=False,
@@ -288,6 +336,7 @@ class TestTrainModelMocked:
         assert mock_path.called
 
 
+@pytest.mark.unit
 class TestPredictionMocked:
     """Tests mejorados para predicción usando mocks."""
 
@@ -328,6 +377,7 @@ class TestPredictionMocked:
             predict(mock_model, X, return_proba=True)
 
 
+@pytest.mark.unit
 class TestEvaluatePredictions:
     """Tests para evaluate_predictions (no necesita mocks)."""
 
@@ -387,6 +437,7 @@ class TestEvaluatePredictions:
         assert isinstance(cm["true_positives"], int)
 
 
+@pytest.mark.unit
 class TestBatchPredict:
     """Tests para batch_predict."""
 
@@ -420,31 +471,38 @@ class TestBatchPredict:
         assert np.all((probabilities >= 0) & (probabilities <= 1))
 
 
+@pytest.mark.unit
 class TestModelPersistenceMocked:
     """Tests para persistencia de modelos con mocks."""
 
-    def test_save_and_load_model_mock(self, mocker):
+    @patch("mlops_project.modeling.predict.joblib.load")
+    @patch("mlops_project.modeling.predict.get_model_path")
+    @patch("mlops_project.modeling.predict.Path.exists")
+    def test_save_and_load_model_mock(self, mock_exists, mock_get_path, mock_load, mocker):
         """Verifica guardar y cargar modelo usando mocks."""
-        # Crear directorio temporal
-        with tempfile.TemporaryDirectory() as temp_dir:
-            model_path = Path(temp_dir) / "test_model.joblib"
+        from mlops_project.modeling.predict import load_model
 
-            # Crear modelo mock simple
-            mock_model = mocker.MagicMock()
-            mock_model.predict.return_value = np.array([0, 1, 0])
+        # Crear modelo mock simple
+        mock_model = mocker.MagicMock()
+        mock_model.predict.return_value = np.array([0, 1, 0])
 
-            # Guardar modelo
-            joblib.dump(mock_model, model_path)
+        # Configurar mocks
+        mock_path = Path("/tmp/test_model.joblib")
+        mock_get_path.return_value = mock_path
+        mock_load.return_value = mock_model
+        mock_exists.return_value = True  # Mockear que el archivo existe
 
-            # Verificar que el archivo exista
-            assert model_path.exists()
+        # Cargar modelo (mockeado)
+        loaded_model = load_model("test_model.joblib")
 
-            # Cargar modelo
-            loaded_model = joblib.load(model_path)
+        # Verificar que se llamó get_model_path
+        assert mock_get_path.called
 
-            # Verificar que se pueda usar
-            predictions = loaded_model.predict(None)
-            assert len(predictions) == 3
+        # Verificar que se llamó joblib.load
+        assert mock_load.called
+
+        # Verificar que se retornó el modelo mock
+        assert loaded_model == mock_model
 
     @patch("mlops_project.modeling.predict.joblib.load")
     @patch("mlops_project.modeling.predict.get_model_path")
@@ -468,6 +526,7 @@ class TestModelPersistenceMocked:
         assert model == mock_model
 
 
+@pytest.mark.unit
 class TestSaveResults:
     """Tests para save_results."""
 

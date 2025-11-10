@@ -35,6 +35,48 @@ def sample_data_df():
 
 
 @pytest.fixture
+def sample_realistic_data_df():
+    """
+    Fixture que proporciona un DataFrame con columnas realistas del proyecto.
+
+    Returns:
+        pd.DataFrame: DataFrame con columnas que coinciden con el dataset real
+    """
+    np.random.seed(42)
+    n_samples = 200
+
+    return pd.DataFrame(
+        {
+            # Numéricas
+            "laufzeit": np.random.randint(1, 100, n_samples),
+            "hoehe": np.random.randint(100, 10000, n_samples),
+            "alter": np.random.randint(18, 80, n_samples),
+            # Ordinales
+            "beszeit": np.random.choice([1, 2, 3, 4, 5], n_samples),
+            "rate": np.random.choice([1, 2, 3, 4], n_samples),
+            "wohnzeit": np.random.choice([1, 2, 3, 4], n_samples),
+            "verm": np.random.choice([0, 1, 2, 3, 4], n_samples),
+            "bishkred": np.random.choice([1, 2, 3, 4], n_samples),
+            "beruf": np.random.choice([1, 2, 3, 4], n_samples),
+            # Nominales
+            "laufkont": np.random.choice([1, 2, 3, 4], n_samples),
+            "moral": np.random.choice([0, 1, 2, 3, 4], n_samples),
+            "verw": np.random.choice([0, 1, 2, 3, 4, 5, 6, 8, 9, 10], n_samples),
+            "sparkont": np.random.choice([1, 2, 3, 4, 5], n_samples),
+            "famges": np.random.choice([1, 2, 3, 4], n_samples),
+            "buerge": np.random.choice([1, 2, 3], n_samples),
+            "weitkred": np.random.choice([1, 2, 3], n_samples),
+            "wohn": np.random.choice([1, 2, 3], n_samples),
+            "pers": np.random.choice([1, 2], n_samples),
+            "telef": np.random.choice([1, 2], n_samples),
+            "gastarb": np.random.choice([1, 2], n_samples),
+            # Target
+            "kredit": np.random.choice([0, 1], n_samples),
+        }
+    )
+
+
+@pytest.fixture
 def sample_X_y(sample_data_df):
     """
     Fixture que proporciona X y y separados para tests.

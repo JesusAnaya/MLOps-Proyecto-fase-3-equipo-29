@@ -515,3 +515,6 @@ config.py
 2. Reiniciar Python/interpreter
 3. Verificar que no hay caché: `uv run python -c "import mlops_project.config; print(mlops_project.config.RANDOM_SEED)"`
 
+
+
+

@@ -3,9 +3,12 @@ Tests para el módulo de features.
 """
 
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+import pytest
 from sklearn.pipeline import Pipeline
 
 from mlops_project.features import (
@@ -16,6 +19,7 @@ from mlops_project.features import (
 )
 
 
+@pytest.mark.unit
 class TestInvalidDataHandler(unittest.TestCase):
     """Tests para la clase InvalidDataHandler."""
 
@@ -84,6 +88,7 @@ class TestInvalidDataHandler(unittest.TestCase):
         self.assertEqual(transformed.shape, self.test_data.shape)
 
 
+@pytest.mark.unit
 class TestOutlierHandler(unittest.TestCase):
     """Tests para la clase OutlierHandler."""
 
@@ -158,6 +163,7 @@ class TestOutlierHandler(unittest.TestCase):
         self.assertEqual(transformed.shape, self.test_data.shape)
 
 
+@pytest.mark.unit
 class TestFeaturePreprocessor(unittest.TestCase):
     """Tests para la clase FeaturePreprocessor."""
 
@@ -260,6 +266,7 @@ class TestFeaturePreprocessor(unittest.TestCase):
         self.assertGreater(len(feature_names), 0)
 
 
+@pytest.mark.unit
 class TestFeaturePipeline(unittest.TestCase):
     """Tests para la creación del pipeline de features."""
 
@@ -309,6 +316,48 @@ class TestFeaturePipeline(unittest.TestCase):
         self.assertEqual(len(pipeline.steps), 1)
         step_names = [name for name, _ in pipeline.steps]
         self.assertIn("feature_preprocessor", step_names)
+
+
+@pytest.mark.unit
+class TestLoadPreprocessor:
+    """Tests para load_preprocessor."""
+
+    @patch("mlops_project.features.joblib.load")
+    @patch("mlops_project.features.get_model_path")
+    def test_load_preprocessor_success(self, mock_get_path, mock_load, mocker):
+        """Verifica que load_preprocessor cargue correctamente."""
+        from mlops_project.features import load_preprocessor
+
+        # Configurar mocks
+        mock_path = mocker.MagicMock(spec=Path)
+        mock_path.exists.return_value = True
+        mock_get_path.return_value = mock_path
+
+        # Crear preprocessor mock
+        mock_preprocessor = mocker.MagicMock()
+        mock_load.return_value = mock_preprocessor
+
+        # Ejecutar
+        result = load_preprocessor("preprocessor.joblib")
+
+        # Verificar llamadas
+        assert mock_get_path.called
+        assert mock_load.called
+        assert result == mock_preprocessor
+
+    @patch("mlops_project.features.get_model_path")
+    def test_load_preprocessor_file_not_found(self, mock_get_path, mocker):
+        """Verifica que load_preprocessor lance error si el archivo no existe."""
+        from mlops_project.features import load_preprocessor
+
+        # Configurar mocks
+        mock_path = mocker.MagicMock(spec=Path)
+        mock_path.exists.return_value = False
+        mock_get_path.return_value = mock_path
+
+        # Debe lanzar FileNotFoundError
+        with pytest.raises(FileNotFoundError, match="Preprocessor no encontrado"):
+            load_preprocessor("preprocessor.joblib")
 
 
 if __name__ == "__main__":

@@ -43,9 +43,23 @@ make pipeline          # Ejecutar pipeline completo (prepare-data + prepare-feat
 ## Testing
 
 ```bash
-make test              # Ejecutar todos los tests
-make test-cov          # Ejecutar tests con coverage
+make test              # Ejecutar todos los tests (unitarios + integración)
+make test-unit         # Ejecutar solo tests unitarios
+make test-integration  # Ejecutar solo tests de integración
+make test-cov          # Ejecutar tests con reporte de coverage
 ```
+
+**Explicación:**
+- `make test`: Ejecuta todos los tests sin filtrar (138 tests totales)
+- `make test-unit`: Ejecuta solo tests marcados con `@pytest.mark.unit` (128 tests)
+- `make test-integration`: Ejecuta solo tests marcados con `@pytest.mark.integration` (10 tests)
+- `make test-cov`: Ejecuta todos los tests y genera reporte de coverage en HTML y terminal
+
+**Parámetros de pytest encapsulados:**
+- `make test` → `uv run pytest`
+- `make test-unit` → `uv run pytest -m unit`
+- `make test-integration` → `uv run pytest -m integration`
+- `make test-cov` → `uv run pytest --cov=mlops_project --cov-report=html --cov-report=term`
 
 **Nota**: Para más detalles sobre testing, ver [testing.md](testing.md).
 
