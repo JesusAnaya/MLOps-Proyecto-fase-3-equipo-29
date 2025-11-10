@@ -20,19 +20,23 @@ from mlops_project.dataset import (
 )
 
 
+@pytest.mark.unit
 class TestDataLoaderIO:
     """Tests para DataLoader con mocks de I/O."""
 
     @patch("mlops_project.dataset.pd.read_csv")
     def test_load_data_calls_read_csv(self, mock_read_csv, sample_data_df):
         """Verifica que load_data llame pd.read_csv correctamente."""
+        from pathlib import Path
+
         mock_read_csv.return_value = sample_data_df
 
         loader = DataLoader("fake_path.csv")
         data = loader.load_data()
 
-        # Verificar que se llamó read_csv
-        mock_read_csv.assert_called_once_with("fake_path.csv", sep=",")
+        # Verificar que se llamó read_csv (DataLoader convierte a Path)
+        expected_path = Path("fake_path.csv")
+        mock_read_csv.assert_called_once_with(expected_path, sep=",")
 
         # Verificar que retorne el DataFrame
         assert data is not None
@@ -63,15 +67,19 @@ class TestDataLoaderIO:
     @patch("mlops_project.dataset.pd.read_csv")
     def test_load_data_with_custom_delimiter(self, mock_read_csv, sample_data_df):
         """Verifica carga con delimitador personalizado."""
+        from pathlib import Path
+
         mock_read_csv.return_value = sample_data_df
 
         loader = DataLoader("file.tsv", delimiter="\t")
         loader.load_data()
 
-        # Verificar que se pasó el delimitador correcto
-        mock_read_csv.assert_called_once_with("file.tsv", sep="\t")
+        # Verificar que se pasó el delimitador correcto (DataLoader convierte a Path)
+        expected_path = Path("file.tsv")
+        mock_read_csv.assert_called_once_with(expected_path, sep="\t")
 
 
+@pytest.mark.unit
 class TestDataCleanerAdvanced:
     """Tests avanzados para DataCleaner."""
 
@@ -116,6 +124,7 @@ class TestDataCleanerAdvanced:
         assert cleaned["col2"].isna().sum() == 1
 
 
+@pytest.mark.unit
 class TestDataSplitterAdvanced:
     """Tests avanzados para DataSplitter."""
 
@@ -158,6 +167,7 @@ class TestDataSplitterAdvanced:
             assert abs(len(X_test) - expected_test) <= 2  # Tolerancia de ±2
 
 
+@pytest.mark.integration
 class TestLoadAndPrepareDataMocked:
     """Tests para load_and_prepare_data con mocks."""
 
@@ -212,19 +222,31 @@ class TestLoadAndPrepareDataMocked:
 
     @patch("mlops_project.dataset.DataLoader")
     @patch("mlops_project.dataset.DataCleaner")
+    @patch("mlops_project.dataset.DataSplitter")
     @patch("mlops_project.dataset.pd.DataFrame.to_csv")
     def test_load_and_prepare_data_saves_when_requested(
-        self, mock_to_csv, mock_cleaner_class, mock_loader_class, sample_data_df
+        self, mock_to_csv, mock_splitter_class, mock_cleaner_class, mock_loader_class, sample_data_df
     ):
         """Verifica que guarde cuando se solicita."""
+        # Crear datos con columna 'kredit' (target)
+        test_df = sample_data_df.copy()
+        if "target" in test_df.columns:
+            test_df = test_df.rename(columns={"target": "kredit"})
+
         # Configurar mocks
         mock_loader = MagicMock()
-        mock_loader.load_data.return_value = sample_data_df
+        mock_loader.load_data.return_value = test_df
         mock_loader_class.return_value = mock_loader
 
         mock_cleaner = MagicMock()
-        mock_cleaner.clean_data.return_value = sample_data_df
+        mock_cleaner.clean_data.return_value = test_df
         mock_cleaner_class.return_value = mock_cleaner
+
+        mock_splitter = MagicMock()
+        X = test_df.drop(columns=["kredit"])
+        y = test_df["kredit"]
+        mock_splitter.split.return_value = (X, X, y, y)
+        mock_splitter_class.return_value = mock_splitter
 
         # Ejecutar con save=True
         load_and_prepare_data("fake_path.csv", save_processed=True, return_combined=True)
@@ -234,18 +256,30 @@ class TestLoadAndPrepareDataMocked:
 
     @patch("mlops_project.dataset.DataLoader")
     @patch("mlops_project.dataset.DataCleaner")
+    @patch("mlops_project.dataset.DataSplitter")
     def test_load_and_prepare_data_return_combined(
-        self, mock_cleaner_class, mock_loader_class, sample_data_df
+        self, mock_splitter_class, mock_cleaner_class, mock_loader_class, sample_data_df
     ):
         """Verifica modo return_combined."""
+        # Crear datos con columna 'kredit' (target)
+        test_df = sample_data_df.copy()
+        if "target" in test_df.columns:
+            test_df = test_df.rename(columns={"target": "kredit"})
+
         # Configurar mocks
         mock_loader = MagicMock()
-        mock_loader.load_data.return_value = sample_data_df
+        mock_loader.load_data.return_value = test_df
         mock_loader_class.return_value = mock_loader
 
         mock_cleaner = MagicMock()
-        mock_cleaner.clean_data.return_value = sample_data_df
+        mock_cleaner.clean_data.return_value = test_df
         mock_cleaner_class.return_value = mock_cleaner
+
+        mock_splitter = MagicMock()
+        X = test_df.drop(columns=["kredit"])
+        y = test_df["kredit"]
+        mock_splitter.split.return_value = (X, X, y, y)
+        mock_splitter_class.return_value = mock_splitter
 
         # Ejecutar con return_combined=True
         result = load_and_prepare_data(
@@ -259,6 +293,7 @@ class TestLoadAndPrepareDataMocked:
         assert isinstance(y, pd.Series)
 
 
+@pytest.mark.unit
 class TestDataCleanerEdgeCases:
     """Tests para casos extremos de DataCleaner."""
 

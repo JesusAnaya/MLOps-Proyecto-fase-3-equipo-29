@@ -109,9 +109,60 @@ make help
 # Ejecutar pipeline completo
 make pipeline
 
-# Ejecutar tests
+# Ejecutar todos los tests (unitarios + integración)
 make test
+
+# Ejecutar tests con reporte de coverage
+make test-cov
 ```
+
+### Testing
+
+**Ejecutar todos los tests con un solo comando:**
+
+```bash
+# Opción recomendada: usando Make
+make test
+
+# O directamente con UV
+uv run pytest
+```
+
+Este comando ejecuta:
+- Todos los tests unitarios (128 tests)
+- Todos los tests de integración (10 tests)
+- Total: 138 tests
+- Genera reporte de coverage automáticamente
+
+**Ejecutar tests por separado:**
+
+```bash
+# Solo tests unitarios - usando Make
+make test-unit
+
+# Solo tests de integración - usando Make
+make test-integration
+
+# O directamente con pytest usando marcadores
+uv run pytest -m unit          # Solo tests unitarios
+uv run pytest -m integration  # Solo tests de integración
+```
+
+**Opciones adicionales:**
+```bash
+# Excluir tests lentos
+uv run pytest -m "not slow"
+
+# Ver reporte de coverage en HTML
+make test-cov && open htmlcov/index.html
+
+# Ejecutar test específico
+uv run pytest tests/test_config.py -v
+```
+
+**Nota:** Los tests están marcados con `@pytest.mark.unit` o `@pytest.mark.integration` para permitir ejecutarlos por separado usando los marcadores de pytest (`-m unit` o `-m integration`).
+
+Para documentación completa de testing, ver [docs/testing.md](docs/testing.md).
 
 ### Scripts Disponibles
 
@@ -221,6 +272,12 @@ uv add "nombre_paquete>=version"
 - **[Modelos Disponibles](docs/modelos_disponibles.md)**: Descripción de modelos soportados
 - **[Comandos Make](docs/comandos_make.md)**: Referencia de comandos Make
 - **[Roadmap](docs/roadmap.md)**: Próximos pasos y mejoras futuras
+
+Reglas de estilo
+-------------------------
+- Todo el código escrito en Inglés.
+- Comentarios dentro del código escritos en Español.
+- Documentación en archivos Markdown escrita en Español.
 
 -------------------------
 Maestría en Inteligencia Artificial Aplicada - MNA

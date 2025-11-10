@@ -47,7 +47,13 @@ def plot_distribution(
     n_rows = (len(columns) + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
-    axes = axes.flatten() if n_rows > 1 else [axes]
+    # Si n_rows == 1, axes es un array 1D que necesita ser convertido a lista
+    # Si n_rows > 1, axes es un array 2D que necesita ser aplanado
+    if n_rows > 1:
+        axes = axes.flatten()
+    else:
+        # Cuando n_rows == 1, axes es un array 1D, convertirlo a lista para indexación
+        axes = axes.flatten() if hasattr(axes, 'flatten') else list(axes) if isinstance(axes, (list, tuple)) else [axes]
 
     for idx, col in enumerate(columns):
         ax = axes[idx]
@@ -96,7 +102,13 @@ def plot_boxplots(
     n_rows = (len(columns) + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
-    axes = axes.flatten() if n_rows > 1 else [axes]
+    # Si n_rows == 1, axes es un array 1D que necesita ser convertido a lista
+    # Si n_rows > 1, axes es un array 2D que necesita ser aplanado
+    if n_rows > 1:
+        axes = axes.flatten()
+    else:
+        # Cuando n_rows == 1, axes es un array 1D, convertirlo a lista para indexación
+        axes = axes.flatten() if hasattr(axes, 'flatten') else list(axes) if isinstance(axes, (list, tuple)) else [axes]
 
     for idx, col in enumerate(columns):
         ax = axes[idx]

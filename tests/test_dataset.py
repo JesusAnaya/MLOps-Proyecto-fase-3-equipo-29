@@ -8,10 +8,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from mlops_project.dataset import DataCleaner, DataLoader, DataSplitter
 
 
+@pytest.mark.unit
 class TestDataLoader(unittest.TestCase):
     """Tests para la clase DataLoader."""
 
@@ -76,6 +78,7 @@ class TestDataLoader(unittest.TestCase):
         self.assertIsInstance(data, pd.DataFrame)
 
 
+@pytest.mark.unit
 class TestDataCleaner(unittest.TestCase):
     """Tests para la clase DataCleaner."""
 
@@ -135,6 +138,7 @@ class TestDataCleaner(unittest.TestCase):
         self.assertEqual(len(cleaned), len(valid_data))
 
 
+@pytest.mark.unit
 class TestDataSplitter(unittest.TestCase):
     """Tests para la clase DataSplitter."""
 

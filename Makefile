@@ -51,11 +51,23 @@ format:
 	uv run ruff format
 	@echo ">>> Código formateado"
 
-## Ejecutar todos los tests
+## Ejecutar todos los tests (unitarios + integración)
 .PHONY: test
 test:
 	uv run pytest
-	@echo ">>> Tests ejecutados"
+	@echo ">>> Todos los tests ejecutados (unitarios + integración)"
+
+## Ejecutar solo tests unitarios
+.PHONY: test-unit
+test-unit:
+	uv run pytest -m unit
+	@echo ">>> Tests unitarios ejecutados"
+
+## Ejecutar solo tests de integración
+.PHONY: test-integration
+test-integration:
+	uv run pytest -m integration
+	@echo ">>> Tests de integración ejecutados"
 
 ## Ejecutar tests con reporte de coverage
 .PHONY: test-cov

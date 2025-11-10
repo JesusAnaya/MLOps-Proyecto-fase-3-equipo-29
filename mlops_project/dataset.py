@@ -154,8 +154,17 @@ class DataCleaner:
                 non_numeric_elements.update([str(v) for v in invalid_values if pd.notna(v)])
 
         # Reemplazar valores no numéricos por NaN
+        # Usar where() en lugar de replace() para evitar FutureWarning de downcasting
+        # Este enfoque es más explícito y no genera warnings
         if non_numeric_elements:
-            df_converted = df_converted.replace(list(non_numeric_elements), np.nan)
+            for col in df_converted.columns:
+                if col == self.mixed_type_column:
+                    continue
+                # Usar where() para reemplazar valores no numéricos con NaN
+                # where(condición, otro_valor) mantiene el valor si la condición es True, 
+                # de lo contrario usa otro_valor
+                mask = df_converted[col].isin(non_numeric_elements)
+                df_converted[col] = df_converted[col].where(~mask, np.nan)
             print(
                 f"✓ Valores no numéricos reemplazados por NaN: {len(non_numeric_elements)} tipos únicos"
             )

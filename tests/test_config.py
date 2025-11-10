@@ -5,9 +5,12 @@ Tests para el módulo de configuración.
 import unittest
 from pathlib import Path
 
+import pytest
+
 from mlops_project import config
 
 
+@pytest.mark.unit
 class TestConfig(unittest.TestCase):
     """Tests para verificar la configuración del proyecto."""
 
