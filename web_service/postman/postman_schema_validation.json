@@ -1,0 +1,375 @@
+{
+  "info": {
+    "name": "Servicio ML Model FastAPI - Tests",
+    "_postman_id": "11111111-2222-3333-4444-555555555555",
+    "description": "Colección completa de Postman para probar y validar el servicio FastAPI del modelo ML. Incluye tests funcionales y de validación de estructura para todos los endpoints (health, información del modelo, predicción individual y por lotes). Reemplaza los nombres de características con el esquema real de tu modelo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Verificación de Salud - GET /health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"El código de estado es 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"La respuesta es JSON válido\", function () {",
+              "    pm.response.to.be.json;",
+              "});",
+              "",
+              "pm.test(\"La respuesta tiene la estructura esperada\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('object');",
+              "    pm.expect(jsonData).to.have.property('status');",
+              "    pm.expect(jsonData.status).to.be.a('string');",
+              "    pm.expect(jsonData.status).to.eql('ok');",
+              "});",
+              "",
+              "pm.test(\"La respuesta no tiene campos adicionales inesperados\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    var allowedKeys = ['status'];",
+              "    var responseKeys = Object.keys(jsonData);",
+              "    responseKeys.forEach(function(key) {",
+              "        pm.expect(allowedKeys).to.include(key, 'Campo inesperado: ' + key);",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"El tiempo de respuesta es razonable (< 1s)\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Información del Modelo - GET /model-info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/model-info",
+          "host": ["{{baseUrl}}"],
+          "path": ["model-info"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"El código de estado es 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"La respuesta es JSON válido\", function () {",
+              "    pm.response.to.be.json;",
+              "});",
+              "",
+              "pm.test(\"La respuesta tiene la estructura esperada\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('object');",
+              "    pm.expect(jsonData).to.have.property('model_name');",
+              "    pm.expect(jsonData).to.have.property('model_version');",
+              "    pm.expect(jsonData.model_name).to.be.a('string');",
+              "    pm.expect(jsonData.model_version).to.be.a('string');",
+              "    pm.expect(jsonData.model_name.length).to.be.above(0);",
+              "    pm.expect(jsonData.model_version.length).to.be.above(0);",
+              "});",
+              "",
+              "pm.test(\"model_version tiene formato de versión válido\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    var versionPattern = /^\\d+\\.\\d+(\\.\\d+)?(-[\\w\\-]+)?$/;",
+              "    pm.expect(jsonData.model_version).to.match(versionPattern, 'Formato de versión inválido');",
+              "});",
+              "",
+              "pm.test(\"El tiempo de respuesta es razonable (< 1s)\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Predicción - solicitud válida (individual) - POST /predict",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"features\": {\n    \"feature_1\": 35,\n    \"feature_2\": 1200.5,\n    \"feature_3\": 2\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/predict",
+          "host": ["{{baseUrl}}"],
+          "path": ["predict"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"El código de estado es 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"La respuesta es JSON válido\", function () {",
+              "    pm.response.to.be.json;",
+              "});",
+              "",
+              "pm.test(\"La respuesta tiene la estructura esperada\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('object');",
+              "    pm.expect(jsonData).to.have.property('prediction');",
+              "    pm.expect(jsonData.prediction).to.satisfy(function(value) {",
+              "        return typeof value === 'number' || typeof value === 'string' || Array.isArray(value);",
+              "    }, 'prediction debe ser número, string o array');",
+              "});",
+              "",
+              "pm.test(\"Si existe probability, debe ser un número entre 0 y 1\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.hasOwnProperty('probability')) {",
+              "        pm.expect(jsonData.probability).to.be.a('number');",
+              "        pm.expect(jsonData.probability).to.be.within(0, 1);",
+              "    }",
+              "});",
+              "",
+              "pm.test(\"Si existe probabilities, debe ser un array de números\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.hasOwnProperty('probabilities')) {",
+              "        pm.expect(jsonData.probabilities).to.be.an('array');",
+              "        jsonData.probabilities.forEach(function(prob) {",
+              "            pm.expect(prob).to.be.a('number');",
+              "            pm.expect(prob).to.be.within(0, 1);",
+              "        });",
+              "    }",
+              "});",
+              "",
+              "pm.test(\"El tiempo de respuesta es razonable (< 2s)\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Predicción por Lotes - solicitud válida - POST /predict-batch",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"instances\": [\n    {\n      \"feature_1\": 35,\n      \"feature_2\": 1200.5,\n      \"feature_3\": 2\n    },\n    {\n      \"feature_1\": 52,\n      \"feature_2\": 3000.0,\n      \"feature_3\": 1\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/predict-batch",
+          "host": ["{{baseUrl}}"],
+          "path": ["predict-batch"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"El código de estado es 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"La respuesta es JSON válido\", function () {",
+              "    pm.response.to.be.json;",
+              "});",
+              "",
+              "pm.test(\"La respuesta tiene la estructura esperada\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('object');",
+              "    pm.expect(jsonData).to.have.property('predictions');",
+              "    pm.expect(jsonData.predictions).to.be.an('array');",
+              "    pm.expect(jsonData.predictions.length).to.be.above(0);",
+              "});",
+              "",
+              "pm.test(\"La longitud de predictions coincide con el número de instancias\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    var requestBody = JSON.parse(pm.request.body.raw);",
+              "    pm.expect(jsonData.predictions.length).to.eql(requestBody.instances.length);",
+              "});",
+              "",
+              "pm.test(\"Cada predicción tiene la estructura correcta\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    jsonData.predictions.forEach(function(pred, index) {",
+              "        pm.expect(pred).to.satisfy(function(value) {",
+              "            return typeof value === 'number' || typeof value === 'string' || (typeof value === 'object' && value !== null);",
+              "        }, 'Predicción ' + index + ' debe ser número, string u objeto');",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Si las predicciones son objetos, tienen campos consistentes\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    var firstPred = jsonData.predictions[0];",
+              "    if (typeof firstPred === 'object' && firstPred !== null) {",
+              "        var firstKeys = Object.keys(firstPred);",
+              "        jsonData.predictions.forEach(function(pred, index) {",
+              "            if (typeof pred === 'object' && pred !== null) {",
+              "                var predKeys = Object.keys(pred);",
+              "                pm.expect(predKeys).to.eql(firstKeys, 'Predicción ' + index + ' tiene estructura inconsistente');",
+              "            }",
+              "        });",
+              "    }",
+              "});",
+              "",
+              "pm.test(\"El tiempo de respuesta es razonable (< 5s)\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Predicción - solicitud inválida (error de validación) - POST /predict",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"features\": {\n    \"feature_1\": \"INVALID_TYPE_SHOULD_BE_NUMBER\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/predict",
+          "host": ["{{baseUrl}}"],
+          "path": ["predict"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"El código de estado es 4xx (error de validación)\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+              "});",
+              "",
+              "pm.test(\"La respuesta es JSON válido\", function () {",
+              "    pm.response.to.be.json;",
+              "});",
+              "",
+              "pm.test(\"La respuesta de error tiene la estructura esperada\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('object');",
+              "    pm.expect(jsonData).to.have.property('detail');",
+              "});",
+              "",
+              "pm.test(\"El detalle del error es informativo\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    if (typeof jsonData.detail === 'string') {",
+              "        pm.expect(jsonData.detail.length).to.be.above(0);",
+              "    } else if (Array.isArray(jsonData.detail)) {",
+              "        pm.expect(jsonData.detail.length).to.be.above(0);",
+              "        jsonData.detail.forEach(function(error) {",
+              "            pm.expect(error).to.be.an('object');",
+              "        });",
+              "    }",
+              "});",
+              "",
+              "pm.test(\"El tiempo de respuesta es razonable (< 1s)\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Validar Headers de Respuesta",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"El header Content-Type es application/json\", function () {",
+              "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+              "});",
+              "",
+              "pm.test(\"La respuesta tiene header de fecha\", function () {",
+              "    pm.expect(pm.response.headers.has('Date') || pm.response.headers.has('date')).to.be.true;",
+              "});",
+              "",
+              "pm.test(\"El tamaño de la respuesta es razonable (< 10KB)\", function () {",
+              "    var responseSize = pm.response.responseSize;",
+              "    pm.expect(responseSize).to.be.below(10240);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
