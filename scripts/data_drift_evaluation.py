@@ -1,71 +1,101 @@
 import pandas as pd
+import numpy as np
+import joblib
+import json
 import os
-from mlops_project.dataset import load_and_prepare_data # Asumimos que esta función te da los datos limpios de train
-from mlops_project.features import prepare_features     # Asumimos que tiene la lógica del preprocesador
-from mlops_project.modeling.train import train_model
-from mlops_project.modeling.predict import predict_and_evaluate
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, recall_score, precision_score
 
-# --- NUEVA CONFIGURACIÓN DE RUTAS ---
-BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..') 
+# --- Configuración de Rutas ---
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Ruta de entrada: El archivo de deriva que CONTIENE X y Y
 DRIFTED_DATA_PATH = os.path.join(BASE_DIR, 'data', 'processed', 'drift_south_test_data.csv')
-TARGET_COLUMN = 'kredit' # Asegúrate de que este es el nombre de tu columna objetivo
 
-# --- PRIMEROS PASOS (Entrenamiento y Preprocesador) ---
+# Rutas del modelo y preprocesador ya entrenados
+MODEL_PATH = os.path.join(BASE_DIR, 'models', 'best_model.joblib')
+PREPROCESSOR_PATH = os.path.join(BASE_DIR, 'models', 'preprocessor.joblib')
 
-# 1. Preparar datos originales (solo necesitamos el X_train y y_train para el entrenamiento y el preprocesador)
-X_train, _, y_train, _ = load_and_prepare_data(
-    filepath="data/raw/german_credit_modified.csv",
-    save_processed=True
-)
+# Ruta de salida para las métricas de deriva
+OUTPUT_PATH = os.path.join(BASE_DIR, 'models', 'drift_results.json')
 
-# 2. Preparar features (Se necesita X_test vacío o un placeholder para definir el preprocessor)
-# Usaremos una copia de X_train como placeholder, aunque la función prepare_features 
-# idealmente solo ajusta el preprocesador con X_train. 
-X_train_t, X_test_placeholder_t, preprocessor = prepare_features(
-    X_train=X_train,
-    X_test=X_train.head(1), # Placeholder para la función, ya que no usaremos X_test
-    save_preprocessor=True
-)
+# Nombre de la variable objetivo (Asegúrate de que este nombre sea CORRECTO)
+TARGET_COLUMN = 'kredit' 
 
-# 3. Entrenar modelo 
-pipeline, results = train_model(
-    X_train=X_train,
-    y_train=y_train,
-    preprocessor=preprocessor,
-    model_name="logistic_regression",
-    use_smote=True,
-    evaluate=True,
-    save_model=True
-)
-
-print("\n--- Evaluando con Base de Data Drift ---")
-
-# 4a. Cargar la base de Data Drift
-try:
-    df_drifted = pd.read_csv(DRIFTED_DATA_PATH)
+def load_data_and_assets():
+    """Carga los datos de deriva, el modelo y el preprocesador, y separa X e Y."""
+    print("Cargando modelo y datos...")
     
-    # Separar características (X) y target (y)
-    X_drift = df_drifted.drop(columns=[TARGET_COLUMN])
-    y_drift = df_drifted[TARGET_COLUMN]
+    # 1. Cargar Assets (Modelo y Preprocesador)
+    try:
+        model = joblib.load(MODEL_PATH)
+        preprocessor = joblib.load(PREPROCESSOR_PATH)
+        print(f"Modelo cargado desde: {MODEL_PATH}")
+    except FileNotFoundError:
+        print("ERROR: Asegúrate de haber ejecutado 'v run mlops-train' primero. Faltan best_model.joblib o preprocessor.joblib.")
+        return None, None, None, None
 
-except FileNotFoundError:
-    print(f"ERROR: No se encontró el archivo de Data Drift en {DRIFTED_DATA_PATH}.")
-    exit()
-except KeyError:
-    print(f"ERROR: La columna objetivo '{TARGET_COLUMN}' no se encontró en el archivo de Data Drift.")
-    exit()
+    # 2. Cargar y Separar el Conjunto de Datos de Deriva
+    try:
+        # Cargar el archivo único de deriva (que incluye la columna TARGET_COLUMN)
+        df_drift = pd.read_csv(DRIFTED_DATA_PATH)
+        print(f"Datos de deriva cargados desde: {DRIFTED_DATA_PATH}. Shape: {df_drift.shape}")
+        
+        # Separar características (X) y etiqueta (y)
+        X_drift = df_drift.drop(columns=[TARGET_COLUMN])
+        y_drift = df_drift[TARGET_COLUMN]
+        
+        print(f"Datos separados. X (Características) shape: {X_drift.shape}, y (Etiquetas) shape: {y_drift.shape}")
+        
+    except FileNotFoundError:
+        print(f"ERROR: No se encontró el archivo de deriva: {DRIFTED_DATA_PATH}.")
+        return None, None, None, None
+    except KeyError:
+        print(f"ERROR: No se encontró la columna objetivo '{TARGET_COLUMN}' en el archivo de deriva. Verifica el nombre de la columna.")
+        return None, None, None, None
 
-# 4b. Evaluar con los datos de drift
-y_pred_drift, y_proba_drift, metrics_drift = predict_and_evaluate(
-    model=pipeline,
-    X_test=X_drift,
-    y_test=y_drift,
-    # Se recomienda cambiar el nombre del archivo de predicciones guardado para reflejar que es el set de drift
-    save_predictions_name="drift_predictions.csv", 
-    save_predictions=True
-)
+    return model, preprocessor, X_drift, y_drift
 
-# 5. Mostrar resultados
-print(f"\nMétricas de Evaluación (Data Drift - {len(X_drift)} muestras):")
-print(f"ROC-AUC: {metrics_drift['roc_auc']:.4f}")
-print(f"F1-Score: {metrics_drift['f1']:.4f}")
+def evaluate_drift(model, preprocessor, X_drift, y_drift):
+    """Preprocesa los datos y evalúa el modelo."""
+    
+    # 1. Aplicar Preprocesamiento a los nuevos datos
+    print("Aplicando preprocesador a los datos de deriva...")
+    X_drift_processed = preprocessor.transform(X_drift)
+    
+    # 2. Hacer Predicciones
+    print("Realizando predicciones...")
+    y_pred = model.predict(X_drift_processed)
+    y_proba = model.predict_proba(X_drift_processed)[:, 1] if hasattr(model, 'predict_proba') else None
+
+    # 3. Calcular Métricas
+    print("Calculando métricas de desempeño...")
+    metrics = {
+        "accuracy": accuracy_score(y_drift, y_pred),
+        "f1_score": f1_score(y_drift, y_pred),
+        "recall": recall_score(y_drift, y_pred),
+        "precision": precision_score(y_drift, y_pred),
+    }
+    
+    if y_proba is not None:
+        metrics["roc_auc_score"] = roc_auc_score(y_drift, y_proba)
+
+    return metrics
+
+def save_metrics(metrics):
+    """Guarda las métricas en un archivo JSON."""
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True) # Asegura que la carpeta models exista
+    with open(OUTPUT_PATH, 'w') as f:
+        json.dump(metrics, f, indent=4)
+    print(f"\nMétricas de desempeño con Deriva guardadas en: {OUTPUT_PATH}")
+
+if __name__ == '__main__':
+    model, preprocessor, X_drift, y_drift = load_data_and_assets()
+    
+    if model is not None and X_drift is not None:
+        drift_metrics = evaluate_drift(model, preprocessor, X_drift, y_drift)
+        save_metrics(drift_metrics)
+
+        print("\n--- Resultados de la Evaluación con Deriva (DRIFT) ---")
+        for metric, value in drift_metrics.items():
+            print(f"{metric.ljust(15)}: {value:.4f}")
+        print("-------------------------------------------------------")
