@@ -1,110 +1,67 @@
 import pandas as pd
 import os
+import joblib
+import json
+
 from evidently import Report
-from evidently.metrics import *
-from evidently.presets import *
-import joblib 
+from evidently.presets import DataDriftPreset
 
-# --- RUTA ---
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-# Datos de Referencia
-INPUT_REF_DATA = os.path.join(BASE_DIR, 'data', 'processed', 'data_clean.csv') 
-# Datos de Producción (Simulados)
-INPUT_DRIFT_DATA = os.path.join(BASE_DIR, 'data', 'processed', 'drift_south_test_data.csv') 
-REPORT_PATH = os.path.join(BASE_DIR, 'reports', 'evidently_drift_report.html')
+REFERENCE_DATA_FILE = os.path.join(BASE_DIR, 'data', 'processed', 'data_clean.csv')
+CURRENT_DATA_FILE = os.path.join(BASE_DIR, 'data', 'processed', 'drift_south_test_data.csv')
+REPORT_PATH = os.path.join(BASE_DIR, 'reports')
+REPORT_JSON = 'evidently_drift_results.json'
+REPORT_HTML = 'evidently_drift_report.html'
+MODEL_FILE = os.path.join(BASE_DIR, 'models', 'best_model.joblib')
 
-# RUTA DEL MEJOR MODELO
-MODEL_PATH = os.path.join(BASE_DIR, 'models', 'best_model.joblib')
+TARGET_NAME = 'kredit'
+PREDICTION_NAME = 'prediction'
 
-# Variable objetivo
-TARGET_COLUMN = 'kredit' 
-# Nombre de la columna de predicciones del modelo
-PREDICTION_COLUMN = 'prediction' 
 
-# --- VARIABLES DE INTERÉS PARA EL DRIFT ---
-CRITICAL_DRIFT_FEATURES = ['laufkont', 'hoehe', 'verw', 'laufzeit']
+def load_data(path):
+    return pd.read_csv(path)
 
-def run_evidently_report():
-    """Carga los datos y genera un reporte HTML interactivo con Evidently AI."""
-    print("--- Inicializando Reporte Interactivo con Evidently AI ---")
 
-    # 1. Cargar Datos
-    try:
-        ref_data = pd.read_csv(INPUT_REF_DATA)
-        drift_data = pd.read_csv(INPUT_DRIFT_DATA)
-        
-        # Eliminar NaN en la columna objetivo si existen (necesario para la métrica de rendimiento)
-        ref_data.dropna(subset=[TARGET_COLUMN], inplace=True)
-        drift_data.dropna(subset=[TARGET_COLUMN], inplace=True)
+def run_evidently_report(ref_data, cur_data):
+    os.makedirs(REPORT_PATH, exist_ok=True)
 
-        print(f"Datos de Referencia cargados: {len(ref_data)} filas")
-        print(f"Datos de Producción cargados: {len(drift_data)} filas")
-        
-    except FileNotFoundError as e:
-        print(f"Error al cargar datos: {e}. Asegúrate de que las rutas son correctas.")
-        return
+    # Crear el reporte con DataDriftPreset
+    report = Report(metrics=[DataDriftPreset()])
+    eval_result = report.run(reference_data=ref_data, current_data=cur_data)
 
-    # 2. Cargar y Simular la columna de Predicciones en Producción
-    
-    model = None
-    try:
-        model = joblib.load(MODEL_PATH)
-        print(f"Modelo cargado exitosamente desde: {MODEL_PATH}")
-        
-        # Usar solo las features necesarias para la predicción
-        # Ajusta esta lista de features si tu modelo usa un subset diferente.
-        # Asumimos que las columnas son todas las que no son el TARGET_COLUMN
-        #INPUT_FEATURES = ref_data.drop(columns=[TARGET_COLUMN]).columns.tolist() 
+    # Guardar JSON completo
+    json_path = os.path.join(REPORT_PATH, REPORT_JSON)
+    with open(json_path, "w") as f:
+        f.write(eval_result.json())
 
-        # Generar predicciones para los datos de producción
-        #drift_data[PREDICTION_COLUMN] = model.predict(drift_data[INPUT_FEATURES])
-        
-    except FileNotFoundError:
-        print(f"ERROR CRÍTICO: No se encontró el modelo en la ruta esperada: {MODEL_PATH}")
-        print("El reporte se generará, pero las métricas de Rendimiento (ClassificationPreset) serán inexactas.")
-        # Generar predicciones simuladas (inutilizables para rendimiento real, pero evita que Evidently falle)
-        drift_data[PREDICTION_COLUMN] = drift_data[TARGET_COLUMN].apply(lambda x: 1 if x == 0 else 0)
-    except Exception as e:
-        print(f"ERROR: No se pudo cargar o usar el modelo. {e}")
-        print("El reporte se generará, pero las métricas de Rendimiento (ClassificationPreset) serán inexactas.")
-        # Fallback de predicciones
-        drift_data[PREDICTION_COLUMN] = drift_data[TARGET_COLUMN].apply(lambda x: 1 if x == 0 else 0)
+    # Crear HTML manualmente
+    html_path = os.path.join(REPORT_PATH, REPORT_HTML)
+    report_list = eval_result.dict()["metrics"] 
+    html_content = "<html><body><h1>Reporte Evidently – Data Drift</h1>"
 
-    # 3. Definir el Reporte
-    data_monitoring_report = Report(metrics=[
-        # 1. Monitoreo de Data Drift (AHORA SOLO PARA LAS VARIABLES CRÍTICAS ESPECIFICADAS)
-        DataDriftPreset(
-            features=CRITICAL_DRIFT_FEATURES 
-        ),
-        # 2. Monitoreo de Target Drift (Cambio en la distribución de la variable objetivo real, 'kredit')
-        TargetDriftPreset(
-            target_name=TARGET_COLUMN, # Es 'kredit'
-            prediction_name=PREDICTION_COLUMN
-        ),
-        # 3. Monitoreo de Clasificación (Rendimiento del modelo: F1, ROC AUC, etc.)
-        ClassificationPreset(
-            target_name=TARGET_COLUMN, 
-            prediction_name=PREDICTION_COLUMN,
-            probas=None 
-        )
-    ])
+    for metric in report_list:
+        metric_name = metric.get("metric", "Unknown")
+        metric_result = metric.get("result", {})
+        html_content += f"<h2>{metric_name}</h2><pre>{json.dumps(metric_result, indent=4)}</pre>"
 
-    # 4. Generar el Reporte
-    print("\nGenerando reporte, esto puede tardar unos segundos...")
-    data_monitoring_report.run(
-        reference_data=ref_data, 
-        current_data=drift_data,
-        column_mapping=None
-    )
+    html_content += "</body></html>"
 
-    # 5. Guardar el Reporte como HTML
-    os.makedirs(os.path.dirname(REPORT_PATH), exist_ok=True)
-    data_monitoring_report.save_html(REPORT_PATH)
-    
-    print("\n================== REPORTE GENERADO ==================")
-    print(f"Reporte HTML guardado exitosamente en: {REPORT_PATH}")
-    print("¡Abre este archivo en tu navegador para ver el dashboard interactivo!")
-    print("======================================================")
+    with open(html_path, "w") as f:
+        f.write(html_content)
+
+    return html_path, json_path
+
 
 if __name__ == "__main__":
-    run_evidently_report()
+    ref = load_data(REFERENCE_DATA_FILE)
+    cur = load_data(CURRENT_DATA_FILE)
+
+    model = joblib.load(MODEL_FILE)
+
+    feature_cols = ref.drop(columns=[TARGET_NAME], errors="ignore").columns
+    ref[PREDICTION_NAME] = model.predict(ref[feature_cols])
+    cur[PREDICTION_NAME] = model.predict(cur[feature_cols])
+
+    html, js = run_evidently_report(ref, cur)
+    print("Saved HTML:", html)
+    print("Saved JSON:", js)
