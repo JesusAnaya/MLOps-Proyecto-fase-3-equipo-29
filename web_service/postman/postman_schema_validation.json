@@ -125,7 +125,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"features\": {\n    \"feature_1\": 35,\n    \"feature_2\": 1200.5,\n    \"feature_3\": 2\n  }\n}",
+          "raw": "{\n  \"features\": {\n    \"alter\": 35,\n    \"beruf\": 2,\n    \"beszeit\": 2,\n    \"bishkred\": 1,\n    \"buerge\": 1,\n    \"famges\": 1,\n    \"gastarb\": 1,\n    \"hoehe\": 5000,\n    \"laufkont\": 1,\n    \"laufzeit\": 24,\n    \"moral\": 2,\n    \"pers\": 1,\n    \"rate\": 1,\n    \"sparkont\": 2,\n    \"telef\": 1,\n    \"verm\": 2,\n    \"verw\": 3,\n    \"weitkred\": 1,\n    \"wohn\": 1,\n    \"wohnzeit\": 2\n  }\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -200,7 +200,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"instances\": [\n    {\n      \"feature_1\": 35,\n      \"feature_2\": 1200.5,\n      \"feature_3\": 2\n    },\n    {\n      \"feature_1\": 52,\n      \"feature_2\": 3000.0,\n      \"feature_3\": 1\n    }\n  ]\n}",
+          "raw": "{\n  \"instances\": [\n    {\n      \"laufzeit\": 24,\n      \"hoehe\": 5000,\n      \"alter\": 35,\n      \"beszeit\": 2,\n      \"rate\": 1,\n      \"wohnzeit\": 2,\n      \"verm\": 2,\n      \"bishkred\": 1,\n      \"beruf\": 2,\n      \"laufkont\": 1,\n      \"moral\": 2,\n      \"verw\": 3,\n      \"sparkont\": 2,\n      \"famges\": 1,\n      \"buerge\": 1,\n      \"weitkred\": 1,\n      \"wohn\": 1,\n      \"pers\": 1,\n      \"telef\": 1,\n      \"gastarb\": 1\n    },\n    {\n      \"laufzeit\": 36,\n      \"hoehe\": 12000,\n      \"alter\": 45,\n      \"beszeit\": 3,\n      \"rate\": 2,\n      \"wohnzeit\": 3,\n      \"verm\": 3,\n      \"bishkred\": 2,\n      \"beruf\": 3,\n      \"laufkont\": 2,\n      \"moral\": 1,\n      \"verw\": 5,\n      \"sparkont\": 3,\n      \"famges\": 2,\n      \"buerge\": 2,\n      \"weitkred\": 2,\n      \"wohn\": 2,\n      \"pers\": 2,\n      \"telef\": 2,\n      \"gastarb\": 1\n    },\n    {\n      \"laufzeit\": 12,\n      \"hoehe\": 2500,\n      \"alter\": 28,\n      \"beszeit\": 1,\n      \"rate\": 1,\n      \"wohnzeit\": 1,\n      \"verm\": 1,\n      \"bishkred\": 1,\n      \"beruf\": 1,\n      \"laufkont\": 3,\n      \"moral\": 3,\n      \"verw\": 1,\n      \"sparkont\": 1,\n      \"famges\": 3,\n      \"buerge\": 3,\n      \"weitkred\": 3,\n      \"wohn\": 3,\n      \"pers\": 1,\n      \"telef\": 1,\n      \"gastarb\": 2\n    }\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"
