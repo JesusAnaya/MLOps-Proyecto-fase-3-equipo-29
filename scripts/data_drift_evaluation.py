@@ -15,7 +15,6 @@ DRIFTED_DATA_PATH = os.path.join(BASE_DIR, 'data', 'processed', 'drift_south_tes
 MODEL_PATH = os.path.join(BASE_DIR, 'models', 'best_model.joblib')
 PREPROCESSOR_PATH = os.path.join(BASE_DIR, 'models', 'preprocessor.joblib')
 
-
 # Ruta de salida para las métricas de deriva
 OUTPUT_PATH = os.path.join(BASE_DIR, 'models', 'drift_results.json')
 
