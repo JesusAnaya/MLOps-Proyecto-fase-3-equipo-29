@@ -52,7 +52,9 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 make init
 ```
 
-Este comando crea el entorno virtual e instala todas las dependencias.
+Este comando crea el entorno virtual e instala todas las dependencias base del proyecto.
+
+**Nota**: Las dependencias de FastAPI (para el servicio web) no se instalan por defecto. Si necesitas usar el servicio web, ver la sección [Instalación del Servicio Web](#instalación-del-servicio-web).
 
 ### 4. Configurar DVC
 
@@ -198,6 +200,25 @@ uv run mlops-predict \
 
 Para documentación detallada de scripts, ver [docs/scripts_detallados.md](docs/scripts_detallados.md).
 
+### Servicio Web
+
+Si has instalado las dependencias web (`uv sync --extra web`), puedes iniciar el servicio FastAPI:
+
+```bash
+# Opción 1: Usando el script proporcionado
+uv run mlops-web-service
+
+# Opción 2: Usando uvicorn directamente
+uv run uvicorn web_service.app:app --reload --host 0.0.0.0 --port 8000
+```
+
+El servicio estará disponible en:
+- **API**: http://localhost:8000
+- **Documentación interactiva**: http://localhost:8000/docs
+- **Documentación alternativa**: http://localhost:8000/redoc
+
+Para más detalles sobre el servicio web, ver [web_service/README.md](web_service/README.md).
+
 ## MLflow
 
 El proyecto está integrado con MLflow para tracking de experimentos, versionado de modelos y registro en Model Registry.
@@ -272,6 +293,8 @@ uv add "nombre_paquete>=version"
 - **[Modelos Disponibles](docs/modelos_disponibles.md)**: Descripción de modelos soportados
 - **[Comandos Make](docs/comandos_make.md)**: Referencia de comandos Make
 - **[Roadmap](docs/roadmap.md)**: Próximos pasos y mejoras futuras
+- **[Web Service](web_service/README.md)**: Documentación del servicio web FastAPI
+- **[Docker](docker/README.md)**: Guía de containerización del servicio
 
 Reglas de estilo
 -------------------------
