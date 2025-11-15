@@ -1,0 +1,64 @@
+stages:
+  # ============================================
+  # ETAPA 1: PREPARACIÓN DE DATOS
+  # ============================================
+  prepare_data:
+    cmd: uv run mlops-prepare-data --input data/raw/german_credit_modified.csv --save
+    deps:
+      - data/raw/german_credit_modified.csv
+      - mlops_project/dataset.py
+      - mlops_project/config.py
+      - pyproject.toml
+    outs:
+      - data/processed/data_clean.csv
+      - data/processed/Xtraintest.csv
+      - data/processed/ytraintest.csv
+
+  # ============================================
+  # ETAPA 2: PREPARACIÓN DE FEATURES
+  # ============================================
+  prepare_features:
+    cmd: uv run mlops-prepare-features --train data/processed/Xtraintest.csv --save-preprocessor
+    deps:
+      - data/processed/Xtraintest.csv
+      - mlops_project/features.py
+      - mlops_project/config.py
+      - pyproject.toml
+    outs:
+      - models/preprocessor.joblib
+
+  # ============================================
+  # ETAPA 3: ENTRENAMIENTO DEL MODELO
+  # ============================================
+  train:
+    cmd: uv run mlops-train --X-train data/processed/Xtraintest.csv --y-train data/processed/ytraintest.csv --preprocessor models/preprocessor.joblib --model logistic_regression
+    deps:
+      - data/processed/Xtraintest.csv
+      - data/processed/ytraintest.csv
+      - models/preprocessor.joblib
+      - mlops_project/modeling/train.py
+      - mlops_project/config.py
+      - pyproject.toml
+    outs:
+      - models/best_model.joblib
+    metrics:
+      - models/model_results.json:
+          cache: false
+
+  # ============================================
+  # ETAPA 4: DESPLIEGUE CON DOCKER (PENDIENTE)
+  # ============================================
+  # deploy_docker:
+  #   cmd: |
+  #     docker build -f docker/Dockerfile -t ml-service:latest .
+  #     docker run -d --name mlops-service -p 8000:8000 ml-service:latest
+  #   deps:
+  #     - models/best_model.joblib
+  #     - docker/Dockerfile
+  #     - pyproject.toml
+  #     - mlops_project
+  #     - web_service
+  #   outs:
+  #     - docker/ml-service:latest
+  #   always_changed: true
+
