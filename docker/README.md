@@ -55,7 +55,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: ml-service:latest
+    image: public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:latest
     ports:
       - "8000:8000"
     volumes:
@@ -70,32 +70,60 @@ cd docker
 docker-compose up --build
 ```
 
-## Construir y Ejecutar
+## Repositorio
 
-**Construir la imagen**:
-```bash
-docker build -f docker/Dockerfile -t ml-service:latest .
+**Repositorio público en Amazon ECR Public**:
+```
+public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29
 ```
 
-**Ejecutar el contenedor**:
+**Nota**: La construcción de la imagen se realiza localmente, pero se usa el nombre del repositorio público para facilitar el push posterior a ECR.
+
+## Construir la Imagen (Local)
+
 ```bash
-docker run -p 8000:8000 ml-service:latest
+docker build -f docker/Dockerfile -t public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:latest .
 ```
 
-El servicio estará disponible en http://localhost:8000 (documentación en `/docs`)
+La imagen se construye localmente con el nombre del repositorio público para poder publicarla después.
 
-## Publicación en Docker Hub
+## Ejecutar el Contenedor (Local)
 
-**Etiquetado y publicación**:
 ```bash
-docker login
-docker tag ml-service:latest tu-usuario/ml-service:0.1.0
-docker tag ml-service:latest tu-usuario/ml-service:latest
-docker push tu-usuario/ml-service:0.1.0
-docker push tu-usuario/ml-service:latest
+docker run -p 8000:8000 public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:latest
 ```
 
-**Tags recomendados**: `0.1.0` (versión del modelo), `latest` (última versión estable)
+El servicio estará disponible en http://localhost:8000 (documentación en `/docs`).
+
+## Publicar en Amazon ECR Public
+
+### 1. Autenticación
+
+```bash
+aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/f8w5v4x1
+```
+
+**Nota**: Si aparece algún error, asegúrate de tener instalada la última versión del AWS CLI y de Docker.
+
+### 2. Etiquetar para Versión Específica (Opcional)
+
+```bash
+docker tag public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:latest public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:0.1.0
+```
+
+### 3. Publicar
+
+**Publicar versión latest**:
+```bash
+docker push public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:latest
+```
+
+**Publicar versión específica (opcional)**:
+```bash
+docker push public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:0.1.0
+```
+
+**Tags recomendados**: `latest` (última versión estable), `0.1.0` (versión del modelo)
 
 ## Notas Adicionales
 
