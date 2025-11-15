@@ -108,8 +108,11 @@ proyecto_etapa_2/
 # Ver todos los comandos disponibles
 make help
 
-# Ejecutar pipeline completo
+# Ejecutar pipeline completo (Make)
 make pipeline
+
+# Ejecutar pipeline completo con DVC (recomendado)
+dvc repro
 
 # Ejecutar todos los tests (unitarios + integración)
 make test
@@ -117,6 +120,50 @@ make test
 # Ejecutar tests con reporte de coverage
 make test-cov
 ```
+
+### Pipeline Automatizado con DVC
+
+El proyecto incluye un pipeline DVC que automatiza el flujo de machine learning (procesamiento de datos, features y entrenamiento). Los tests son manejados por Make.
+
+**Ejecutar el Pipeline ML (Recomendado):**
+```bash
+# Opción más simple: usando DVC directamente
+dvc repro
+
+# O usando Make
+make pipeline-dvc
+```
+
+**Comandos útiles:**
+```bash
+# Ver estado del pipeline
+dvc status
+
+# Ver grafo del pipeline
+dvc dag
+```
+
+**Ejecución Local**: Para ejecutar el pipeline localmente, asegúrate de tener los datos descargados:
+```bash
+# 1. Descargar datos desde S3 (si no los tienes)
+dvc pull data/raw/german_credit_modified.csv.dvc
+
+# 2. Ejecutar el pipeline ML
+dvc repro
+```
+
+**Opción adicional: Tests + Pipeline ML completo**
+
+Si deseas ejecutar los tests antes del pipeline ML:
+```bash
+make run-full-pipeline
+```
+
+Este comando ejecuta primero los tests (`make test`) y luego el pipeline ML (`make pipeline-dvc`).
+
+**Nota**: Los tests son manejados por Make (`make test`), no por DVC. El pipeline DVC se enfoca exclusivamente en el flujo de machine learning.
+
+Para más detalles, ver [docs/dvc_pipeline.md](docs/dvc_pipeline.md).
 
 ### Testing
 
@@ -289,6 +336,7 @@ uv add "nombre_paquete>=version"
 - **[Guía de MLflow](docs/mlflow_guia.md)**: Guía completa con ejemplos de MLflow
 - **[Pipeline y Ejemplos](docs/pipeline_ejemplos.md)**: Ejemplos detallados del pipeline
 - **[Configuración DVC](docs/dvc_configuracion.md)**: Configuración detallada de DVC
+- **[Pipeline DVC](docs/dvc_pipeline.md)**: Guía del pipeline automatizado con DVC
 - **[Testing](docs/testing.md)**: Información sobre tests y coverage
 - **[Modelos Disponibles](docs/modelos_disponibles.md)**: Descripción de modelos soportados
 - **[Comandos Make](docs/comandos_make.md)**: Referencia de comandos Make

@@ -121,10 +121,21 @@ predict:
 		--save
 	@echo ">>> Predicciones realizadas"
 
-## Ejecutar pipeline completo
+## Ejecutar pipeline completo (Make)
 .PHONY: pipeline
 pipeline: prepare-data prepare-features train
 	@echo ">>> Pipeline MLOps completado exitosamente"
+
+## Ejecutar pipeline completo con DVC
+.PHONY: pipeline-dvc
+pipeline-dvc:
+	dvc repro
+	@echo ">>> Pipeline DVC completado exitosamente"
+
+## Ejecutar tests + pipeline completo con DVC (opción adicional)
+.PHONY: run-full-pipeline
+run-full-pipeline: test pipeline-dvc
+	@echo ">>> Tests y pipeline DVC ejecutados exitosamente"
 
 #################################################################################
 # GESTIÓN DE DATOS (DVC + S3)                                                  #

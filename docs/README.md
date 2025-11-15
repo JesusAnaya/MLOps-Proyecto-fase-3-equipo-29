@@ -15,6 +15,7 @@ Esta carpeta contiene la documentación detallada del proyecto MLOps.
 
 - **[Scripts Detallados](scripts_detallados.md)**: Documentación completa de todos los scripts CLI
 - **[Pipeline y Ejemplos](pipeline_ejemplos.md)**: Ejemplos detallados de ejecución del pipeline
+- **[Pipeline DVC](dvc_pipeline.md)**: Guía del pipeline automatizado con DVC
 - **[Modelos Disponibles](modelos_disponibles.md)**: Descripción de modelos soportados
 
 ### Referencias

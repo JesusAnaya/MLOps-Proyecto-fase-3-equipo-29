@@ -1,3 +1,8 @@
+# IMPORTANTE: Este pipeline coexiste con archivos .dvc individuales para mantener
+# compatibilidad con dvc pull. Los archivos .dvc son la fuente de verdad para S3.
+# Después de ejecutar este pipeline, los archivos .dvc deben actualizarse manualmente
+# usando: dvc add <archivo> para cada output generado.
+
 stages:
   # ============================================
   # ETAPA 1: PREPARACIÓN DE DATOS
@@ -9,10 +14,8 @@ stages:
       - mlops_project/dataset.py
       - mlops_project/config.py
       - pyproject.toml
-    outs:
-      - data/processed/data_clean.csv
-      - data/processed/Xtraintest.csv
-      - data/processed/ytraintest.csv
+    # NOTA: No declaramos outputs aquí para evitar conflictos con archivos .dvc
+    # Los archivos se generan pero los .dvc files los gestionan para dvc pull
 
   # ============================================
   # ETAPA 2: PREPARACIÓN DE FEATURES
@@ -24,8 +27,7 @@ stages:
       - mlops_project/features.py
       - mlops_project/config.py
       - pyproject.toml
-    outs:
-      - models/preprocessor.joblib
+    # NOTA: models/preprocessor.joblib es gestionado por models/preprocessor.joblib.dvc
 
   # ============================================
   # ETAPA 3: ENTRENAMIENTO DEL MODELO
@@ -39,11 +41,10 @@ stages:
       - mlops_project/modeling/train.py
       - mlops_project/config.py
       - pyproject.toml
-    outs:
-      - models/best_model.joblib
     metrics:
       - models/model_results.json:
           cache: false
+    # NOTA: models/best_model.joblib es gestionado por models/best_model.joblib.dvc
 
   # ============================================
   # ETAPA 4: DESPLIEGUE CON DOCKER (PENDIENTE)
