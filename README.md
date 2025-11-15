@@ -30,8 +30,8 @@ Implementación de pipeline automatizado para clasificación de crédito bancari
 ### 1. Clonar el Repositorio
 
 ```bash
-git clone git@github.com:JesusAnaya/MLOps-Proyecto-fase-2-equipo-29.git
-cd MLOps-Proyecto-fase-2-equipo-29
+git clone git@github.com:JesusAnaya/MLOps-Proyecto-fase-3-equipo-29.git
+cd MLOps-Proyecto-fase-3-equipo-29
 ```
 
 ### 2. Instalar UV
