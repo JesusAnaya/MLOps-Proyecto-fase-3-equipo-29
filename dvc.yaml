@@ -1,0 +1,65 @@
+# IMPORTANTE: Este pipeline coexiste con archivos .dvc individuales para mantener
+# compatibilidad con dvc pull. Los archivos .dvc son la fuente de verdad para S3.
+# Después de ejecutar este pipeline, los archivos .dvc deben actualizarse manualmente
+# usando: dvc add <archivo> para cada output generado.
+
+stages:
+  # ============================================
+  # ETAPA 1: PREPARACIÓN DE DATOS
+  # ============================================
+  prepare_data:
+    cmd: uv run mlops-prepare-data --input data/raw/german_credit_modified.csv --save
+    deps:
+      - data/raw/german_credit_modified.csv
+      - mlops_project/dataset.py
+      - mlops_project/config.py
+      - pyproject.toml
+    # NOTA: No declaramos outputs aquí para evitar conflictos con archivos .dvc
+    # Los archivos se generan pero los .dvc files los gestionan para dvc pull
+
+  # ============================================
+  # ETAPA 2: PREPARACIÓN DE FEATURES
+  # ============================================
+  prepare_features:
+    cmd: uv run mlops-prepare-features --train data/processed/Xtraintest.csv --save-preprocessor
+    deps:
+      - data/processed/Xtraintest.csv
+      - mlops_project/features.py
+      - mlops_project/config.py
+      - pyproject.toml
+    # NOTA: models/preprocessor.joblib es gestionado por models/preprocessor.joblib.dvc
+
+  # ============================================
+  # ETAPA 3: ENTRENAMIENTO DEL MODELO
+  # ============================================
+  train:
+    cmd: uv run mlops-train --X-train data/processed/Xtraintest.csv --y-train data/processed/ytraintest.csv --preprocessor models/preprocessor.joblib --model logistic_regression
+    deps:
+      - data/processed/Xtraintest.csv
+      - data/processed/ytraintest.csv
+      - models/preprocessor.joblib
+      - mlops_project/modeling/train.py
+      - mlops_project/config.py
+      - pyproject.toml
+    metrics:
+      - models/model_results.json:
+          cache: false
+    # NOTA: models/best_model.joblib es gestionado por models/best_model.joblib.dvc
+
+  # ============================================
+  # ETAPA 4: DESPLIEGUE CON DOCKER (PENDIENTE)
+  # ============================================
+  # deploy_docker:
+  #   cmd: |
+  #     docker build -f docker/Dockerfile -t ml-service:latest .
+  #     docker run -d --name mlops-service -p 8000:8000 ml-service:latest
+  #   deps:
+  #     - models/best_model.joblib
+  #     - docker/Dockerfile
+  #     - pyproject.toml
+  #     - mlops_project
+  #     - web_service
+  #   outs:
+  #     - docker/ml-service:latest
+  #   always_changed: true
+

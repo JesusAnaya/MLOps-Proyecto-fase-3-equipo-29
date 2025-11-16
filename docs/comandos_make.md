@@ -38,7 +38,14 @@ make prepare-features # Preparar features (mlops-prepare-features)
 make train             # Entrenar modelo (mlops-train)
 make predict           # Realizar predicciones (mlops-predict)
 make pipeline          # Ejecutar pipeline completo (prepare-data + prepare-features + train)
+make pipeline-dvc      # Ejecutar pipeline ML con DVC (recomendado)
+make run-full-pipeline # Ejecutar tests + pipeline ML completo (opción adicional)
 ```
+
+**Explicación:**
+- `make pipeline`: Ejecuta el pipeline completo usando Make (prepare-data + prepare-features + train)
+- `make pipeline-dvc`: Ejecuta el pipeline ML usando DVC (`dvc repro`). Esta es la opción recomendada para el pipeline ML. No incluye tests.
+- `make run-full-pipeline`: Ejecuta primero los tests (`make test`) y luego el pipeline ML (`make pipeline-dvc`). Opción adicional si deseas ejecutar tests antes del pipeline.
 
 ## Testing
 
@@ -96,12 +103,17 @@ make requirements
 # Verificar código
 make check
 
-# Ejecutar pipeline
-make pipeline
+# Ejecutar pipeline ML (recomendado)
+make pipeline-dvc
+
+# Opción adicional: Tests + Pipeline ML completo
+make run-full-pipeline
 
 # Verificar estado de datos
 make dvc-status
 ```
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+read_file
 
 ### Antes de Commit
 
