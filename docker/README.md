@@ -55,7 +55,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:latest
+    image: public.ecr.aws/f8w5v4x1/mna/mlops-equipo-29:latest
     ports:
       - "8000:8000"
     volumes:
@@ -74,15 +74,17 @@ docker-compose up --build
 
 **Repositorio público en Amazon ECR Public**:
 ```
-public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29
+public.ecr.aws/f8w5v4x1/mna/mlops-equipo-29
 ```
+
+**Galería pública**: Puedes ver las imágenes publicadas en la [galería de ECR Public](https://gallery.ecr.aws/f8w5v4x1/mna/mlops-equipo-29).
 
 **Nota**: La construcción de la imagen se realiza localmente, pero se usa el nombre del repositorio público para facilitar el push posterior a ECR.
 
 ## Construir la Imagen (Local)
 
 ```bash
-docker build -f docker/Dockerfile -t public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:latest .
+docker build -f docker/Dockerfile -t public.ecr.aws/f8w5v4x1/mna/mlops-equipo-29:latest .
 ```
 
 La imagen se construye localmente con el nombre del repositorio público para poder publicarla después.
@@ -90,7 +92,7 @@ La imagen se construye localmente con el nombre del repositorio público para po
 ## Ejecutar el Contenedor (Local)
 
 ```bash
-docker run -p 8000:8000 public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:latest
+docker run -p 8000:8000 public.ecr.aws/f8w5v4x1/mna/mlops-equipo-29:latest
 ```
 
 El servicio estará disponible en http://localhost:8000 (documentación en `/docs`).
@@ -108,22 +110,24 @@ aws ecr-public get-login-password --region us-east-1 | docker login --username A
 ### 2. Etiquetar para Versión Específica (Opcional)
 
 ```bash
-docker tag public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:latest public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:0.1.0
+docker tag public.ecr.aws/f8w5v4x1/mna/mlops-equipo-29:latest public.ecr.aws/f8w5v4x1/mna/mlops-equipo-29:0.1.0
 ```
 
 ### 3. Publicar
 
 **Publicar versión latest**:
 ```bash
-docker push public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:latest
+docker push public.ecr.aws/f8w5v4x1/mna/mlops-equipo-29:latest
 ```
 
 **Publicar versión específica (opcional)**:
 ```bash
-docker push public.ecr.aws/f8w5v4x1/mna/mlops-eqipo-29:0.1.0
+docker push public.ecr.aws/f8w5v4x1/mna/mlops-equipo-29:0.1.0
 ```
 
 **Tags recomendados**: `latest` (última versión estable), `0.1.0` (versión del modelo)
+
+**Ver imágenes publicadas**: Una vez publicadas, las imágenes están disponibles en la [galería pública de ECR](https://gallery.ecr.aws/f8w5v4x1/mna/mlops-equipo-29).
 
 ## Notas Adicionales
 
