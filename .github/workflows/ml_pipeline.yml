@@ -32,11 +32,7 @@ jobs:
       - name: Instalar dependencias
         run: |
           uv sync
-
-      - name: Instalar AWS CLI
-        run: |
-          python -m pip install --upgrade pip
-          pip install awscli
+          uv run pip install awscli
 
       - name: Configurar AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -47,7 +43,7 @@ jobs:
 
       - name: Descargar datos desde DVC
         run: |
-          dvc pull data/raw/german_credit_modified.csv.dvc
+          uv run dvc pull data/raw/german_credit_modified.csv.dvc
 
       - name: Ejecutar pipeline ML
         env:
