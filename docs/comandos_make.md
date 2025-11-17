@@ -56,17 +56,11 @@ make test-integration  # Ejecutar solo tests de integración
 make test-cov          # Ejecutar tests con reporte de coverage
 ```
 
-**Explicación:**
-- `make test`: Ejecuta todos los tests sin filtrar (138 tests totales)
-- `make test-unit`: Ejecuta solo tests marcados con `@pytest.mark.unit` (128 tests)
-- `make test-integration`: Ejecuta solo tests marcados con `@pytest.mark.integration` (10 tests)
-- `make test-cov`: Ejecuta todos los tests y genera reporte de coverage en HTML y terminal
-
-**Parámetros de pytest encapsulados:**
-- `make test` → `uv run pytest`
-- `make test-unit` → `uv run pytest -m unit`
-- `make test-integration` → `uv run pytest -m integration`
-- `make test-cov` → `uv run pytest --cov=mlops_project --cov-report=html --cov-report=term`
+**Detalles:**
+- `make test`: Ejecuta todos los tests (138 tests: 128 unitarios + 10 integración)
+- `make test-unit`: Solo tests unitarios (128 tests)
+- `make test-integration`: Solo tests de integración (10 tests)
+- `make test-cov`: Tests con reporte de coverage (HTML y terminal)
 
 **Nota**: Para más detalles sobre testing, ver [testing.md](testing.md).
 
