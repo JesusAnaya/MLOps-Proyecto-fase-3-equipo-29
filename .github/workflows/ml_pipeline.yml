@@ -1,0 +1,97 @@
+name: ML Pipeline CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # Permite ejecución manual
+
+jobs:
+  ml-pipeline:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necesario para DVC
+
+      - name: Instalar UV
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          uv sync
+
+      - name: Configurar AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: us-east-1
+
+      - name: Instalar AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+          aws --version
+
+      - name: Descargar datos desde DVC
+        run: |
+          dvc pull data/raw/german_credit_modified.csv.dvc
+
+      - name: Ejecutar pipeline ML
+        env:
+          PUSH_TO_DVC: "true"
+        run: |
+          bash scripts/run_pipeline.sh
+
+      - name: Verificar artefactos generados
+        run: |
+          echo "Verificando artefactos..."
+          ls -lh models/best_model.joblib
+          ls -lh models/preprocessor.joblib
+          ls -lh models/model_results.json
+          echo ""
+          echo "Contenido de model_results.json:"
+          cat models/model_results.json
+
+      - name: Commit cambios de DVC (solo en push a main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Verificar si hay cambios en archivos .dvc
+          if [ -n "$(git status --porcelain models/*.dvc)" ]; then
+            git add models/*.dvc
+            git commit -m "ci: actualizar archivos DVC después del pipeline [skip ci]" || exit 0
+            git push || exit 0
+          fi
+
+      - name: Resumen del pipeline
+        if: always()
+        run: |
+          echo "## Pipeline ML Completado" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artefactos generados:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ models/best_model.joblib" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ models/preprocessor.joblib" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ models/model_results.json" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Resultados del modelo:" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat models/model_results.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
