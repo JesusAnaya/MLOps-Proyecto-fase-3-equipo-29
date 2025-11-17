@@ -112,6 +112,10 @@ proyecto_etapa_3/
 │   └── docker-compose.yml
 ├── references/            # Referencias y recursos
 ├── reports/               # Reportes y figuras
+├── scripts/               # Scripts de automatización
+│   └── run_pipeline.sh    # Script para ejecutar pipeline completo
+├── .github/               # Configuración GitHub Actions
+│   └── workflows/         # Workflows de CI/CD
 ├── dvc.yaml               # Pipeline DVC
 ├── Makefile               # Comandos Make
 ├── pyproject.toml         # Configuración del proyecto
@@ -163,6 +167,7 @@ Para información detallada sobre cada componente del proyecto:
 - **[UV](docs/uv_guia.md)**: Ventajas y uso detallado de UV
 - **[Modelos](docs/modelos_disponibles.md)**: Descripción de modelos soportados
 - **[Pipeline Ejemplos](docs/pipeline_ejemplos.md)**: Ejemplos detallados del pipeline
+- **[CI/CD Pipeline](docs/cicd_pipeline.md)**: Automatización con GitHub Actions
 - **[Docker](docker/README.md)**: Guía de containerización del servicio
 - **[Roadmap](docs/roadmap.md)**: Próximos pasos y mejoras futuras
 
