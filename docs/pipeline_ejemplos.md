@@ -12,10 +12,29 @@ Esta guía muestra ejemplos detallados de cómo ejecutar el pipeline completo de
 
 ## Pipeline Completo Automatizado
 
-### Usando Make
+### Usando DVC (Recomendado)
 
 ```bash
-# Ejecutar todo el pipeline de una vez
+# Ejecutar pipeline ML completo con DVC
+dvc repro
+# O usando Make
+make pipeline-dvc
+```
+
+Este comando ejecuta el pipeline ML completo con versionado automático:
+1. `prepare_data` - Preparación de datos
+2. `prepare_features` - Transformación de features
+3. `train` - Entrenamiento del modelo
+
+**Ventajas de DVC:**
+- Versionado automático de artefactos
+- Caché inteligente (solo ejecuta etapas que cambiaron)
+- Gestión de dependencias automática
+
+### Usando Make (Alternativa)
+
+```bash
+# Ejecutar pipeline completo con Make
 make pipeline
 ```
 
@@ -23,6 +42,8 @@ Este comando ejecuta secuencialmente:
 1. `make prepare-data` - Preparación de datos
 2. `make prepare-features` - Transformación de features
 3. `make train` - Entrenamiento del modelo
+
+**Nota**: Para más detalles sobre el pipeline DVC, ver [dvc_pipeline.md](dvc_pipeline.md).
 
 ## Pipeline Manual Paso a Paso
 

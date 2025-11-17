@@ -90,8 +90,8 @@ Deberías ver:
 
 ```bash
 # 1. Clonar repositorio Git
-git clone git@github.com:JesusAnaya/MLOps-Proyecto-fase-2-equipo-29.git
-cd MLOps-Proyecto-fase-2-equipo-29
+git clone git@github.com:JesusAnaya/MLOps-Proyecto-fase-3-equipo-29.git
+cd MLOps-Proyecto-fase-3-equipo-29
 
 # 2. Configurar AWS credentials
 aws configure
