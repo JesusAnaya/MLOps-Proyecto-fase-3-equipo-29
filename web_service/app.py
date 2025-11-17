@@ -24,11 +24,24 @@ from web_service.service import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+swagger_ui_parameters = {
+    "syntaxHighlight": {
+        "theme": "obsidian",
+        "defaultModelsExpandDepth": -1,
+        "docExpansion": "none",
+        "displayOperationId": True,
+        "tryItOutEnabled": True,
+        "displayRequestDuration": True,
+        "filter": True
+    }
+}
+
 # Crear aplicación FastAPI
 app = FastAPI(
     title="Credit Prediction API - MLOps Grupo 29",
     description="API para predicción de riesgo crediticio, elaborada por el equipo 29 del curso MLOps",
     version="0.1.0",
+    swagger_ui_parameters = swagger_ui_parameters,
 )
 
 
