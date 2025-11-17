@@ -15,17 +15,17 @@ command -v uv >/dev/null || { curl -LsSf https://astral.sh/uv/install.sh | sh; e
 uv sync
 
 # Descargar datos si faltan
-[ -f "data/raw/german_credit_modified.csv" ] || dvc pull data/raw/german_credit_modified.csv.dvc
+[ -f "data/raw/german_credit_modified.csv" ] || uv run dvc pull data/raw/german_credit_modified.csv.dvc
 
 # Ejecutar pipeline
-dvc repro
+uv run dvc repro
 
 # Verificar artefactos
 [ -f "models/best_model.joblib" ] && [ -f "models/preprocessor.joblib" ] && [ -f "models/model_results.json" ] || { echo "Error: artefactos no generados"; exit 1; }
 
 # Push a DVC si está habilitado
 if [ "$PUSH_TO_DVC" = "true" ] || [ -n "$CI" ]; then
-    dvc push
+    uv run dvc push
 fi
 
 echo "✓ Pipeline completado"
