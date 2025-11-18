@@ -110,9 +110,6 @@ addopts = [
     "-v",
     "--strict-markers",
     "--tb=short",
-    "--cov=mlops_project",
-    "--cov-report=term-missing",
-    "--cov-report=html",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
