@@ -169,6 +169,7 @@ Para información detallada sobre cada componente del proyecto:
 - **[Pipeline Ejemplos](docs/pipeline_ejemplos.md)**: Ejemplos detallados del pipeline
 - **[CI/CD Pipeline](docs/cicd_pipeline.md)**: Automatización con GitHub Actions
 - **[Docker](docker/README.md)**: Guía de containerización del servicio
+- **[Data Drift](docs/data_drift.md)**: Simulación y detección de data drift con Evidently AI
 - **[Roadmap](docs/roadmap.md)**: Próximos pasos y mejoras futuras
 
 Reglas de estilo

@@ -55,6 +55,9 @@ web = [
     "uvicorn>=0.38.0",
     "pydantic>=2.12.3",
 ]
+evidently = [
+    "evidently>=0.4.0",
+]
 
 # === Scripts de ejecución para UV ===
 [project.scripts]
